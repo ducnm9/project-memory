@@ -5,6 +5,8 @@ export interface AppConfig {
   host: string;
   nodeEnv: "development" | "production" | "test";
   logLevel: string;
+  mongodbUri: string;
+  mongodbDbName: string;
 }
 
 const schema = z.object({
@@ -14,6 +16,8 @@ const schema = z.object({
   LOG_LEVEL: z
     .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
     .default("info"),
+  MONGODB_URI: z.string().min(1),
+  MONGODB_DB_NAME: z.string().min(1),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppConfig> {
@@ -30,5 +34,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppCo
     host: data.HOST,
     nodeEnv: data.NODE_ENV,
     logLevel: data.LOG_LEVEL,
+    mongodbUri: data.MONGODB_URI,
+    mongodbDbName: data.MONGODB_DB_NAME,
   });
 }

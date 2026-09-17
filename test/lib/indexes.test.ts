@@ -1,0 +1,50 @@
+import { describe, expect, it, vi } from "vitest";
+import type { Db } from "mongodb";
+import { CORE_INDEXES, ensureIndexes } from "../../src/lib/indexes.js";
+
+const EXPECTED_COLLECTIONS = [
+  "knowledge_items",
+  "facts",
+  "relations",
+  "sources",
+  "versions",
+  "proposals",
+  "audit_events",
+  "knowledge_gaps",
+];
+
+describe("CORE_INDEXES", () => {
+  it("covers every core collection with the org_project tenancy index", () => {
+    const names = CORE_INDEXES.map((e) => e.collection);
+    expect(names.sort()).toEqual([...EXPECTED_COLLECTIONS].sort());
+    for (const entry of CORE_INDEXES) {
+      const tenancy = entry.indexes.find((i) => i.name === "org_project");
+      expect(tenancy, `${entry.collection} missing org_project`).toBeDefined();
+      expect(tenancy?.key).toEqual({ organizationId: 1, projectId: 1 });
+    }
+  });
+});
+
+describe("ensureIndexes", () => {
+  it("creates the declared indexes on each collection exactly once", async () => {
+    const createIndexes = vi.fn().mockResolvedValue(["org_project"]);
+    const collection = vi.fn().mockReturnValue({ createIndexes });
+    const db = { collection } as unknown as Db;
+
+    await ensureIndexes(db);
+
+    expect(collection).toHaveBeenCalledTimes(CORE_INDEXES.length);
+    for (const entry of CORE_INDEXES) {
+      expect(collection).toHaveBeenCalledWith(entry.collection);
+    }
+    expect(createIndexes).toHaveBeenCalledTimes(CORE_INDEXES.length);
+  });
+
+  it("propagates a createIndexes failure", async () => {
+    const createIndexes = vi.fn().mockRejectedValue(new Error("index build failed"));
+    const collection = vi.fn().mockReturnValue({ createIndexes });
+    const db = { collection } as unknown as Db;
+
+    await expect(ensureIndexes(db)).rejects.toThrow("index build failed");
+  });
+});

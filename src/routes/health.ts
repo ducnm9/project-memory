@@ -1,8 +1,18 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyReply } from "fastify";
+import { ping } from "../lib/mongo.js";
 
 export function registerHealthRoutes(app: FastifyInstance): void {
   app.get("/health", async () => ({ status: "ok" }));
-  // Readiness aggregates dependency checks. PM-001 has none, so it is always
-  // ready. PM-002 adds a DB ping here and returns 503 on failure.
-  app.get("/ready", async () => ({ status: "ready" }));
+
+  // Readiness aggregates dependency checks. PM-002: ping MongoDB; 503 on failure.
+  app.get("/ready", async (_req, reply: FastifyReply) => {
+    try {
+      await ping(app.db);
+      return { status: "ready" };
+    } catch (err) {
+      app.log.warn({ err }, "readiness check failed: mongo ping");
+      reply.status(503);
+      return { status: "not ready" };
+    }
+  });
 }

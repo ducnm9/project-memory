@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Pre-commit: kiểm tra nhanh, xác định. Chặn commit nếu JSON hỏng.
+# (Ponytail là ruleset lúc-viết-code, không chạy ở đây; xem scripts/ponytail-review.sh.)
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+py="$(command -v python3 || command -v python || true)"
+if [ -z "$py" ]; then
+  echo "pre-commit: không tìm thấy python, bỏ qua validate JSON." >&2
+  exit 0
+fi
+
+# 1) Validate toàn bộ JSON specs bằng script sẵn có của repo.
+[ -f scripts/validate-json.py ] && "$py" scripts/validate-json.py
+
+# 2) Kiểm tra cú pháp mọi file .json được staged (bắt cả examples/, v.v.).
+staged="$(git diff --cached --name-only --diff-filter=ACM -- '*.json' || true)"
+fail=0
+for f in $staged; do
+  [ -f "$f" ] || continue
+  err="$("$py" -c "import json,sys;
+try: json.load(open(sys.argv[1], encoding='utf-8'))
+except Exception as e: print(e); sys.exit(1)" "$f" 2>&1)" \
+    || { echo "INVALID JSON: $f: $err"; fail=1; }
+done
+[ "$fail" -eq 0 ] || { echo "pre-commit: có JSON hỏng, commit bị chặn."; exit 1; }
+
+echo "pre-commit: JSON hợp lệ."

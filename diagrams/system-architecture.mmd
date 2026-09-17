@@ -1,0 +1,18 @@
+flowchart TB
+  subgraph Local["Developer / Agent"]
+    A["Kiro / OpenCode / Other Agents"]
+  end
+  MCP["MCP Server"]
+  API["Project Memory API"]
+  KC["Knowledge Core"]
+  R["Retrieval Engine"]
+  G["Governance"]
+  I["Ingestion"]
+  S["GitHub / Git / Jira / Docs / S3"]
+  A --> MCP --> API
+  API --> KC
+  API --> R
+  API --> G
+  S --> I --> KC
+  KC --> R
+  G --> KC

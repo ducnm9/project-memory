@@ -1,0 +1,2 @@
+{"id":"architecture-001","question":"Why does Matter History use AuditLog?","expected_types":["Decision","Architecture","Fact"]}
+{"id":"architecture-002","question":"What could be affected if AuditLog changes?","expected_types":["Architecture","Fact","Relation"]}

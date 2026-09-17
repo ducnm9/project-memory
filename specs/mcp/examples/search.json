@@ -1,0 +1,9 @@
+{
+  "tool": "knowledge.search",
+  "arguments": {
+    "query": "why does Matter History use AuditLog",
+    "types": ["Decision", "Architecture", "Fact"],
+    "status": ["PUBLISHED"],
+    "limit": 10
+  }
+}

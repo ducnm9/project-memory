@@ -1,0 +1,12 @@
+flowchart LR
+  Q["Query"] --> U["Query Understanding"]
+  U --> T["Full-text"]
+  U --> V["Vector"]
+  U --> M["Metadata"]
+  T --> C["Candidates"]
+  V --> C
+  M --> C
+  C --> R["Rerank"]
+  R --> X["Relation Expansion"]
+  X --> E["Evidence Selection"]
+  E --> A["Agent Context / Answer"]

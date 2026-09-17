@@ -1,0 +1,8 @@
+flowchart LR
+  S["Sources"] --> N["Normalize"]
+  N --> P["Parse / Analyze"]
+  P --> X["Extract Claims & Relations"]
+  X --> D["Duplicate / Conflict Checks"]
+  D --> PR["Proposal"]
+  PR --> V["Validate / Review"]
+  V --> PUB["Publish"]

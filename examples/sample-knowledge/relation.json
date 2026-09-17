@@ -1,0 +1,7 @@
+{
+  "subjectId": "matter-history",
+  "predicate": "depends_on",
+  "objectId": "audit-log",
+  "status": "ACCEPTED",
+  "sourceIds": ["github-pr-1821"]
+}

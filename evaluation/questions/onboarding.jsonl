@@ -1,0 +1,2 @@
+{"id":"onboarding-001","question":"Give me an overview of this project.","expected_types":["Architecture","Concept"]}
+{"id":"onboarding-002","question":"Where is authentication implemented?","expected_types":["Architecture","Fact"]}

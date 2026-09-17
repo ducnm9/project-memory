@@ -1,0 +1,14 @@
+{
+  "id": "decision-auditlog-v2",
+  "type": "Decision",
+  "title": "Use AuditLog v2 for Matter History",
+  "status": "PUBLISHED",
+  "version": 1,
+  "content": {
+    "context": "Matter History requires a standardized audit representation.",
+    "problem": "Multiple history implementations created inconsistent semantics.",
+    "decision": "Matter History uses AuditLog v2."
+  },
+  "sourceIds": ["github-pr-1821"],
+  "relatedKnowledgeIds": ["audit-log-v2"]
+}

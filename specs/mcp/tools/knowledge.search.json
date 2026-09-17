@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "knowledge.search",
+  "type": "object",
+  "required": ["query"],
+  "properties": {
+    "query": {"type": "string", "minLength": 1},
+    "types": {"type": "array", "items": {"type": "string"}},
+    "status": {"type": "array", "items": {"type": "string"}},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 50}
+  },
+  "additionalProperties": false
+}

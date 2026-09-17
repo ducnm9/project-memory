@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "knowledge.propose",
+  "type": "object",
+  "required": ["type", "title", "content"],
+  "properties": {
+    "type": {"type": "string"},
+    "title": {"type": "string"},
+    "content": {"type": "object"},
+    "sourceIds": {"type": "array", "items": {"type": "string"}},
+    "relatedKnowledgeIds": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

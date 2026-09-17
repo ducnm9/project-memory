@@ -26,3 +26,17 @@ done
 [ "$fail" -eq 0 ] || { echo "pre-commit: có JSON hỏng, commit bị chặn."; exit 1; }
 
 echo "pre-commit: JSON hợp lệ."
+
+# 3) TypeScript checks — only when staged files touch backend code/config.
+ts_staged="$(git diff --cached --name-only --diff-filter=ACM \
+  -- 'src/**' 'test/**' 'tsconfig.json' 'tsconfig.build.json' 'eslint.config.js' 'vitest.config.ts' 'package.json' || true)"
+if [ -n "$ts_staged" ]; then
+  if command -v npm >/dev/null 2>&1 && [ -f package.json ]; then
+    echo "pre-commit: chạy lint + typecheck cho TypeScript..."
+    npm run lint
+    npm run typecheck
+    echo "pre-commit: TypeScript hợp lệ."
+  else
+    echo "pre-commit: không tìm thấy npm hoặc package.json, bỏ qua kiểm tra TypeScript." >&2
+  fi
+fi

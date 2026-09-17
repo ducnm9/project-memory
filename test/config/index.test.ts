@@ -29,4 +29,12 @@ describe("loadConfig", () => {
   it("fails fast on out-of-enum NODE_ENV", () => {
     expect(() => loadConfig({ NODE_ENV: "staging" })).toThrow(/NODE_ENV/);
   });
+
+  it("fails fast on invalid LOG_LEVEL", () => {
+    expect(() => loadConfig({ LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
+  });
+
+  it("fails fast on empty HOST", () => {
+    expect(() => loadConfig({ HOST: "" })).toThrow(/HOST/);
+  });
 });

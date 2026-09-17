@@ -12,6 +12,11 @@ function buildTestApp() {
   app.get("/unknown", async () => {
     throw new Error("secret internals");
   });
+  app.get(
+    "/validated",
+    { schema: { querystring: { type: "object", required: ["n"], properties: { n: { type: "integer" } } } } },
+    async () => ({ ok: true }),
+  );
   return app;
 }
 
@@ -31,6 +36,14 @@ describe("registerErrorHandler", () => {
     const body = res.json();
     expect(body.error.code).toBe("INTERNAL_ERROR");
     expect(body.error.message).not.toContain("secret internals");
+    await app.close();
+  });
+
+  it("maps a native Fastify 400 to the client-error shape", async () => {
+    const app = buildTestApp();
+    const res = await app.inject({ method: "GET", url: "/validated" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
     await app.close();
   });
 });

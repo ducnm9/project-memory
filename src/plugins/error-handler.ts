@@ -12,8 +12,9 @@ export function registerErrorHandler(app: FastifyInstance): void {
 
     // Fastify's built-in validation errors carry a numeric statusCode of 400.
     const maybe = error as { statusCode?: number; message?: string };
-    if (maybe.statusCode === 400) {
-      reply.status(400).send({
+    const sc = maybe.statusCode;
+    if (typeof sc === "number" && sc >= 400 && sc < 500) {
+      reply.status(sc).send({
         error: { code: "VALIDATION_ERROR", message: maybe.message ?? "Bad Request" },
       });
       return;

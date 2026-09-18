@@ -25,6 +25,20 @@ const dbOrgOnly = () =>
         : { findOne: async () => null },
   }) as unknown as Db;
 
+function buildAppWithActor(db: Db, actorOrgId: string): FastifyInstance {
+  const app = Fastify({ logger: false });
+  app.decorate("db", db);
+  registerErrorHandler(app);
+  app.addHook("onRequest", async (req) => {
+    (req as unknown as { actor: unknown }).actor = {
+      actorId: "tok_x", organizationId: actorOrgId, type: "service",
+    };
+  });
+  registerTenantContext(app);
+  app.get("/probe", async (req) => ({ ctx: req.projectContext ?? null }));
+  return app;
+}
+
 describe("tenant-context plugin", () => {
   it("attaches org-shared context when only org header is present", async () => {
     const app = buildApp(dbOrgOnly());
@@ -57,6 +71,24 @@ describe("tenant-context plugin", () => {
     const res = await app.inject({ method: "GET", url: "/probe", headers: { "x-organization-id": orgId } });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({ error: { code: "TENANT_NOT_FOUND", message: "organization or project not found" } });
+    await app.close();
+  });
+});
+
+describe("tenant-context org enforcement", () => {
+  it("allows a request whose header org matches the actor org", async () => {
+    const app = buildAppWithActor(dbOrgOnly(), orgId);
+    const res = await app.inject({ method: "GET", url: "/probe", headers: { "x-organization-id": orgId } });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("rejects with 403 when the header org differs from the actor org", async () => {
+    const other = newOrgId();
+    const app = buildAppWithActor(dbOrgOnly(), other);
+    const res = await app.inject({ method: "GET", url: "/probe", headers: { "x-organization-id": orgId } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe("FORBIDDEN_SCOPE");
     await app.close();
   });
 });

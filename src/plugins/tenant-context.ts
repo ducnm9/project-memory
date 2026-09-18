@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createRepository } from "../modules/project-context/repository.js";
 import { resolveContext, type ProjectContext } from "../modules/project-context/context.js";
+import { ForbiddenScopeError } from "../lib/errors.js";
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -17,6 +18,11 @@ export function registerTenantContext(app: FastifyInstance): void {
   app.addHook("onRequest", async (req) => {
     const organizationId = header(req, "x-organization-id");
     if (organizationId === undefined) return; // no-op; path-scoped routes handle their own ids
+
+    if (req.actor && req.actor.organizationId !== organizationId) {
+      throw new ForbiddenScopeError("token not permitted for this organization");
+    }
+
     const repo = createRepository(app.db);
     req.projectContext = await resolveContext(repo, {
       organizationId,

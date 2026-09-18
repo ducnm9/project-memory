@@ -33,11 +33,31 @@ export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.m
 );
 
 /**
+ * Root (non-tenant-scoped) collections. Kept separate from CORE_INDEXES so the
+ * root vs tenant-scoped concepts stay distinct; ensureIndexes merges both.
+ */
+const ROOT_COLLECTION_INDEXES: ReadonlyArray<CollectionIndexes> = [
+  {
+    collection: "organizations",
+    indexes: [{ key: { id: 1 }, name: "id_unique", unique: true }],
+  },
+  {
+    collection: "projects",
+    indexes: [
+      { key: { id: 1 }, name: "id_unique", unique: true },
+      { key: { organizationId: 1 }, name: "org_lookup" },
+    ],
+  },
+];
+
+export const ROOT_INDEXES = ROOT_COLLECTION_INDEXES;
+
+/**
  * Ensures all declared indexes exist. `createIndexes` is idempotent: it is a
  * no-op for indexes that already exist, so this is safe to run on every boot.
  */
 export async function ensureIndexes(db: Db): Promise<void> {
-  for (const { collection, indexes } of CORE_INDEXES) {
+  for (const { collection, indexes } of [...CORE_INDEXES, ...ROOT_INDEXES]) {
     await db.collection(collection).createIndexes(indexes as IndexDescription[]);
   }
 }

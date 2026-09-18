@@ -56,6 +56,19 @@ const ROOT_COLLECTION_INDEXES: ReadonlyArray<CollectionIndexes> = [
       { key: { organizationId: 1 }, name: "org_lookup" },
     ],
   },
+  {
+    collection: "repositories",
+    indexes: [
+      { key: { id: 1 }, name: "id_unique", unique: true },
+      {
+        key: { organizationId: 1, url: 1 },
+        name: "active_url_unique",
+        unique: true,
+        partialFilterExpression: { unboundAt: null },
+      },
+      { key: { organizationId: 1, projectId: 1 }, name: "project_lookup" },
+    ],
+  },
 ];
 
 export const ROOT_INDEXES = ROOT_COLLECTION_INDEXES;

@@ -71,3 +71,18 @@ describe("service_tokens indexes", () => {
     expect(hs!.unique).toBe(true);
   });
 });
+
+describe("repositories indexes", () => {
+  it("declares unique id, unique active url, and project lookup", () => {
+    const entry = ROOT_INDEXES.find((c) => c.collection === "repositories");
+    expect(entry).toBeDefined();
+    const names = entry!.indexes.map((i) => i.name);
+    expect(names).toContain("id_unique");
+    expect(names).toContain("active_url_unique");
+    expect(names).toContain("project_lookup");
+
+    const activeUrl = entry!.indexes.find((i) => i.name === "active_url_unique");
+    expect(activeUrl!.unique).toBe(true);
+    expect(activeUrl!.partialFilterExpression).toEqual({ unboundAt: null });
+  });
+});

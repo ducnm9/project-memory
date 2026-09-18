@@ -58,3 +58,16 @@ describe("ROOT_INDEXES", () => {
     expect(byCol.projects.some((i) => i.name === "org_lookup")).toBe(true);
   });
 });
+
+describe("service_tokens indexes", () => {
+  it("declares unique id, unique hashedSecret, and org lookup", () => {
+    const entry = ROOT_INDEXES.find((c) => c.collection === "service_tokens");
+    expect(entry).toBeDefined();
+    const names = entry!.indexes.map((i) => i.name);
+    expect(names).toContain("id_unique");
+    expect(names).toContain("hashed_secret_unique");
+    expect(names).toContain("org_lookup");
+    const hs = entry!.indexes.find((i) => i.name === "hashed_secret_unique");
+    expect(hs!.unique).toBe(true);
+  });
+});

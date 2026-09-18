@@ -56,7 +56,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     const raw = (req.body ?? {}) as { type?: unknown; status?: unknown };
 
-    if (!knowledgeTypeSchema.safeParse(raw.type).success) {
+    if (raw.type !== undefined && !knowledgeTypeSchema.safeParse(raw.type).success) {
       throw new InvalidKnowledgeTypeError();
     }
     if (raw.status !== undefined) {

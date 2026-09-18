@@ -106,6 +106,18 @@ describe("POST /knowledge", () => {
     await app.close();
   });
 
+  it("rejects a missing type with 400", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: { projectId, title: "t", summary: "s" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
   it("rejects a malformed projectId with 400", async () => {
     const app = buildApp(seeded());
     const res = await app.inject({
@@ -194,6 +206,14 @@ describe("GET /knowledge", () => {
     expect(res.json().error.code).toBe("VALIDATION_ERROR");
     await app.close();
   });
+
+  it("rejects a bad status filter with 400", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({ method: "GET", url: "/knowledge?status=BOGUS" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
 });
 
 describe("PATCH /knowledge/:id", () => {
@@ -238,6 +258,28 @@ describe("PATCH /knowledge/:id", () => {
 
     const immutable = await app.inject({ method: "PATCH", url: `/knowledge/${id}`, payload: { type: "Concept" } });
     expect(immutable.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("returns 404 when patching an item in another organization", async () => {
+    const foreign = { ...published, organizationId: "org_B", status: "DISCOVERED" };
+    const app = buildApp({ projects: [project], knowledge_items: [foreign] });
+    const res = await app.inject({
+      method: "PATCH", url: `/knowledge/${foreign.id}`, payload: { title: "x" },
+    });
+    expect(res.statusCode).toBe(404);
+    expect(res.json().error.code).toBe("KNOWLEDGE_NOT_FOUND");
+    await app.close();
+  });
+
+  it("treats a same-status patch as a no-op and returns 200", async () => {
+    const item = { ...published, status: "DISCOVERED" };
+    const app = buildApp({ projects: [project], knowledge_items: [item] });
+    const res = await app.inject({
+      method: "PATCH", url: `/knowledge/${item.id}`, payload: { status: "DISCOVERED" },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe("DISCOVERED");
     await app.close();
   });
 

@@ -16,6 +16,19 @@ function buildApp(handlers: Record<string, Record<string, unknown>>): FastifyIns
   return app;
 }
 
+function buildAppWithActor(db: Db, actorOrgId: string): FastifyInstance {
+  const app = Fastify({ logger: false });
+  app.decorate("db", db);
+  app.addHook("onRequest", async (req) => {
+    (req as unknown as { actor: unknown }).actor = {
+      actorId: "tok_1", organizationId: actorOrgId, type: "service",
+    };
+  });
+  registerErrorHandler(app);
+  registerOrganizationRoutes(app);
+  return app;
+}
+
 describe("POST /organizations", () => {
   it("creates and returns 201 with a generated id", async () => {
     const insertOne = vi.fn().mockResolvedValue({});
@@ -73,6 +86,23 @@ describe("POST /organizations/:orgId/projects", () => {
     expect(res.statusCode).toBe(201);
     expect(res.json().id).toMatch(/^proj_/);
     expect(res.json().organizationId).toBe(orgId);
+    await app.close();
+  });
+});
+
+describe("GET /organizations actor scoping", () => {
+  it("returns only the caller's organization and never lists all orgs", async () => {
+    const org = { id: orgId, name: "a", createdAt: "", updatedAt: "" };
+    const find = vi.fn();
+    const db = {
+      collection: (n: string) =>
+        n === "organizations" ? { findOne: vi.fn().mockResolvedValue(org), find } : {},
+    } as unknown as Db;
+    const app = buildAppWithActor(db, orgId);
+    const res = await app.inject({ method: "GET", url: "/organizations" });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ organizations: [org] });
+    expect(find).not.toHaveBeenCalled();
     await app.close();
   });
 });

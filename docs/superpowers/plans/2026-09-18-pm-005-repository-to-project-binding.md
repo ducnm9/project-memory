@@ -372,6 +372,23 @@ describe("parseRepositoryUrl", () => {
     expect(parseRepositoryUrl("https://github.com")).toBeNull();
     expect(parseRepositoryUrl("ftp://github.com/a/b")).toBeNull();
   });
+
+  it("rejects scheme-without-// and non-host left sides", () => {
+    expect(parseRepositoryUrl("https:github.com/acme/widgets")).toBeNull();
+    expect(parseRepositoryUrl("http:/github.com/acme/widgets")).toBeNull();
+    expect(parseRepositoryUrl("foo:bar")).toBeNull();
+    expect(parseRepositoryUrl("C:/Users/x")).toBeNull();
+  });
+
+  it("accepts a dotted host:path scp form without a user", () => {
+    expect(parseRepositoryUrl("github.com:acme/widgets")?.url)
+      .toBe("https://github.com/acme/widgets");
+  });
+
+  it("rejects a malformed host", () => {
+    expect(parseRepositoryUrl("https://-foo.com/a/b")).toBeNull();
+    expect(parseRepositoryUrl("foo..com:acme/x")).toBeNull();
+  });
 });
 ```
 
@@ -394,7 +411,8 @@ export interface ParsedRepository {
   connector: RepositoryConnector;
 }
 
-const SCP_LIKE = /^(?:[^@/]+@)?([^:/@]+):(.+)$/;
+const SCP_LIKE = /^(?:([^@/\s]+)@)?([^:/\s]+):([^\s]+)$/;
+const HOST = /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)*$/;
 
 function inferConnector(host: string): RepositoryConnector {
   switch (host) {
@@ -435,8 +453,15 @@ export function parseRepositoryUrl(input: string): ParsedRepository | null {
   } else {
     const scp = raw.match(SCP_LIKE);
     if (!scp) return null;
-    host = scp[1];
-    pathPart = scp[2];
+    const user = scp[1];
+    const scpHost = scp[2];
+    const scpPath = scp[3];
+    // The no-user `host:path` form requires a dotted host, so
+    // scheme-without-`//` input (`https:foo/bar`), `C:/x`, and `word:rest`
+    // are rejected instead of being read as a host.
+    if (!user && !scpHost.includes(".")) return null;
+    host = scpHost;
+    pathPart = scpPath;
   }
 
   host = host.toLowerCase();
@@ -445,7 +470,7 @@ export function parseRepositoryUrl(input: string): ParsedRepository | null {
   pathPart = pathPart.replace(/\/+$/, "");
 
   if (host.length === 0 || pathPart.length === 0) return null;
-  if (!/^[a-z0-9.-]+$/.test(host)) return null;
+  if (!HOST.test(host)) return null;
 
   return {
     url: `https://${host}/${pathPart}`,

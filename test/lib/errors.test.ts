@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { AppError, NotFoundError, ValidationError } from "../../src/lib/errors.js";
+import {
+  AppError,
+  InvalidKnowledgeTypeError,
+  InvalidStatusTransitionError,
+  KnowledgeNotFoundError,
+  NotFoundError,
+  ValidationError,
+} from "../../src/lib/errors.js";
 import { InvalidTenantScopeError, TenantNotFoundError, UnauthorizedError, ForbiddenScopeError } from "../../src/lib/errors.js";
 
 describe("AppError", () => {
@@ -58,5 +65,27 @@ describe("ForbiddenScopeError", () => {
     const e = new ForbiddenScopeError("token not permitted for this organization");
     expect(e.statusCode).toBe(403);
     expect(e.code).toBe("FORBIDDEN_SCOPE");
+  });
+});
+
+describe("knowledge errors", () => {
+  it("KnowledgeNotFoundError maps to 404 / KNOWLEDGE_NOT_FOUND", () => {
+    const e = new KnowledgeNotFoundError();
+    expect(e.statusCode).toBe(404);
+    expect(e.code).toBe("KNOWLEDGE_NOT_FOUND");
+  });
+
+  it("InvalidKnowledgeTypeError maps to 422 / INVALID_KNOWLEDGE_TYPE", () => {
+    const e = new InvalidKnowledgeTypeError();
+    expect(e.statusCode).toBe(422);
+    expect(e.code).toBe("INVALID_KNOWLEDGE_TYPE");
+  });
+
+  it("InvalidStatusTransitionError maps to 422 and names the edge", () => {
+    const e = new InvalidStatusTransitionError("PUBLISHED", "DISCOVERED");
+    expect(e.statusCode).toBe(422);
+    expect(e.code).toBe("INVALID_STATUS_TRANSITION");
+    expect(e.message).toContain("PUBLISHED");
+    expect(e.message).toContain("DISCOVERED");
   });
 });

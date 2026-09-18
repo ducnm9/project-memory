@@ -86,3 +86,23 @@ describe("repositories indexes", () => {
     expect(activeUrl!.partialFilterExpression).toEqual({ unboundAt: null });
   });
 });
+
+describe("knowledge_items indexes", () => {
+  it("declares unique id plus type and status lookups on top of tenancy", () => {
+    const entry = CORE_INDEXES.find((c) => c.collection === "knowledge_items");
+    expect(entry).toBeDefined();
+    const names = entry!.indexes.map((i) => i.name);
+    expect(names).toContain("org_project");
+    expect(names).toContain("id_unique");
+    expect(names).toContain("project_type");
+    expect(names).toContain("project_status");
+
+    expect(entry!.indexes.find((i) => i.name === "id_unique")!.unique).toBe(true);
+    expect(entry!.indexes.find((i) => i.name === "project_type")!.key).toEqual({
+      organizationId: 1, projectId: 1, type: 1,
+    });
+    expect(entry!.indexes.find((i) => i.name === "project_status")!.key).toEqual({
+      organizationId: 1, projectId: 1, status: 1,
+    });
+  });
+});

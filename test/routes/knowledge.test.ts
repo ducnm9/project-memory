@@ -37,6 +37,7 @@ describe("POST /knowledge", () => {
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
+    expect(body._id).toBeUndefined();
     expect(body.id).toMatch(/^know_/);
     expect(body.status).toBe("DISCOVERED");
     expect(body.content).toEqual({});

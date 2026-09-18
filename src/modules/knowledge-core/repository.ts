@@ -68,7 +68,7 @@ export function createKnowledgeItemStore(db: Db): KnowledgeItemStore {
         updatedAt: now,
         lastVerifiedAt: null,
       };
-      await col().insertOne(item);
+      await col().insertOne({ ...item });
       return item;
     },
 

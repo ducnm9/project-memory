@@ -22,6 +22,7 @@ describe("createKnowledgeItemStore.create", () => {
   it("stamps id, version, timestamps and returns the item", async () => {
     const { db } = createFakeDb();
     const item = await createKnowledgeItemStore(db).create(input);
+    expect(item).not.toHaveProperty("_id");
     expect(item.id).toMatch(/^know_[0-9A-HJKMNP-TV-Z]{26}$/);
     expect(item.organizationId).toBe(org);
     expect(item.projectId).toBe(project);

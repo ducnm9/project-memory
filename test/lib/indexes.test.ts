@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Db } from "mongodb";
-import { CORE_INDEXES, ensureIndexes } from "../../src/lib/indexes.js";
+import { CORE_INDEXES, ROOT_INDEXES, ensureIndexes } from "../../src/lib/indexes.js";
 
 const EXPECTED_COLLECTIONS = [
   "knowledge_items",
@@ -33,11 +33,12 @@ describe("ensureIndexes", () => {
 
     await ensureIndexes(db);
 
-    expect(collection).toHaveBeenCalledTimes(CORE_INDEXES.length);
-    for (const entry of CORE_INDEXES) {
+    const total = CORE_INDEXES.length + ROOT_INDEXES.length;
+    expect(collection).toHaveBeenCalledTimes(total);
+    for (const entry of [...CORE_INDEXES, ...ROOT_INDEXES]) {
       expect(collection).toHaveBeenCalledWith(entry.collection);
     }
-    expect(createIndexes).toHaveBeenCalledTimes(CORE_INDEXES.length);
+    expect(createIndexes).toHaveBeenCalledTimes(total);
   });
 
   it("propagates a createIndexes failure", async () => {
@@ -46,5 +47,14 @@ describe("ensureIndexes", () => {
     const db = { collection } as unknown as Db;
 
     await expect(ensureIndexes(db)).rejects.toThrow("index build failed");
+  });
+});
+
+describe("ROOT_INDEXES", () => {
+  it("declares unique id indexes for organizations and projects, plus org lookup", () => {
+    const byCol = Object.fromEntries(ROOT_INDEXES.map((e) => [e.collection, e.indexes]));
+    expect(byCol.organizations.some((i) => i.name === "id_unique" && i.unique)).toBe(true);
+    expect(byCol.projects.some((i) => i.name === "id_unique" && i.unique)).toBe(true);
+    expect(byCol.projects.some((i) => i.name === "org_lookup")).toBe(true);
   });
 });

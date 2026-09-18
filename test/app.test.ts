@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Db } from "mongodb";
 import { buildApp } from "../src/app.js";
 import { loadConfig } from "../src/config/index.js";
@@ -39,6 +39,21 @@ describe("buildApp", () => {
     const res = await app.inject({ method: "GET", url: "/boom" });
     expect(res.statusCode).toBe(500);
     expect(res.json().error.code).toBe("INTERNAL_ERROR");
+    await app.close();
+  });
+});
+
+describe("buildApp tenancy wiring", () => {
+  it("exposes POST /organizations", async () => {
+    const insertOne = vi.fn().mockResolvedValue({});
+    const db = {
+      command: async () => ({ ok: 1 }),
+      collection: () => ({ insertOne }),
+    } as unknown as Db;
+    const app = buildApp({ config: testConfig(), db });
+    const res = await app.inject({ method: "POST", url: "/organizations", payload: { name: "Acme" } });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().id).toMatch(/^org_/);
     await app.close();
   });
 });

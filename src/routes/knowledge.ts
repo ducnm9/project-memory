@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { createRepository as createProjectContextRepository } from "../modules/project-context/repository.js";
+import { projectIdSchema } from "../modules/project-context/entities.js";
 import type { ProjectContext } from "../modules/project-context/context.js";
 import {
   createKnowledgeItemBodySchema,
@@ -69,6 +70,10 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
     if (!parsed.success) throw new ValidationError("invalid knowledge item body");
     const body = parsed.data;
 
+    if (!projectIdSchema.safeParse(body.projectId).success) {
+      throw new ValidationError("projectId is malformed");
+    }
+
     await requireProject(ctx.organizationId, body.projectId);
 
     const item = await store().create({
@@ -101,8 +106,9 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
     const filter: KnowledgeItemFilter = {};
 
     if (query.projectId !== undefined) {
-      await requireProject(ctx.organizationId, query.projectId);
-      filter.projectId = query.projectId;
+      const projectId = parseOrThrow(projectIdSchema, query.projectId, "projectId is malformed");
+      await requireProject(ctx.organizationId, projectId);
+      filter.projectId = projectId;
     }
     if (query.type !== undefined) {
       filter.type = parseOrThrow(knowledgeTypeSchema, query.type, "type filter is invalid");

@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import { registerKnowledgeRoutes } from "../../src/routes/knowledge.js";
 import { registerErrorHandler } from "../../src/plugins/error-handler.js";
 import { newKnowledgeItemId } from "../../src/modules/knowledge-core/entities.js";
+import { newProjectId } from "../../src/modules/project-context/entities.js";
 import { createFakeDb, type Collections } from "../support/fake-db.js";
 
 const orgId = "org_A";
-const projectId = "proj_1";
+const projectId = newProjectId();
+const unknownProjectId = newProjectId();
 const project = { id: projectId, organizationId: orgId, name: "p", createdAt: "", updatedAt: "" };
 
 function buildApp(rows: Collections, withContext = true): FastifyInstance {
@@ -103,6 +105,18 @@ describe("POST /knowledge", () => {
     await app.close();
   });
 
+  it("rejects a malformed projectId with 400", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: { projectId: "not-a-project", type: "Decision", title: "t", summary: "s" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
   it("returns 400 when there is no organization context", async () => {
     const app = buildApp(seeded(), false);
     const res = await app.inject({
@@ -166,9 +180,17 @@ describe("GET /knowledge", () => {
     expect(badType.statusCode).toBe(400);
     expect(badType.json().error.code).toBe("VALIDATION_ERROR");
 
-    const unknownProject = await app.inject({ method: "GET", url: "/knowledge?projectId=proj_missing" });
+    const unknownProject = await app.inject({ method: "GET", url: `/knowledge?projectId=${unknownProjectId}` });
     expect(unknownProject.statusCode).toBe(404);
     expect(unknownProject.json().error.code).toBe("TENANT_NOT_FOUND");
+    await app.close();
+  });
+
+  it("rejects a malformed projectId filter with 400", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({ method: "GET", url: "/knowledge?projectId=not-a-project" });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
     await app.close();
   });
 });

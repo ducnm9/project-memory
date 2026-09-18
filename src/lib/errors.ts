@@ -64,3 +64,21 @@ export class RepositoryNotFoundError extends AppError {
     super(message, 404, "REPOSITORY_NOT_FOUND");
   }
 }
+
+export class KnowledgeNotFoundError extends AppError {
+  constructor(message = "knowledge item not found") {
+    super(message, 404, "KNOWLEDGE_NOT_FOUND");
+  }
+}
+
+export class InvalidKnowledgeTypeError extends AppError {
+  constructor(message = "knowledge type is not supported") {
+    super(message, 422, "INVALID_KNOWLEDGE_TYPE");
+  }
+}
+
+export class InvalidStatusTransitionError extends AppError {
+  constructor(from: string, to: string) {
+    super(`invalid status transition: ${from} -> ${to}`, 422, "INVALID_STATUS_TRANSITION");
+  }
+}

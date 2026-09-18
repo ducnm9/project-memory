@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AppError, NotFoundError, ValidationError } from "../../src/lib/errors.js";
-import { InvalidTenantScopeError, TenantNotFoundError } from "../../src/lib/errors.js";
+import { InvalidTenantScopeError, TenantNotFoundError, UnauthorizedError, ForbiddenScopeError } from "../../src/lib/errors.js";
 
 describe("AppError", () => {
   it("carries statusCode and code", () => {
@@ -41,5 +41,22 @@ describe("tenant errors", () => {
     expect(e.statusCode).toBe(404);
     expect(e.code).toBe("TENANT_NOT_FOUND");
     expect(e.message).toBe("organization or project not found");
+  });
+});
+
+describe("UnauthorizedError", () => {
+  it("has status 401 and code UNAUTHORIZED", () => {
+    const e = new UnauthorizedError("invalid credentials");
+    expect(e.statusCode).toBe(401);
+    expect(e.code).toBe("UNAUTHORIZED");
+    expect(e.message).toBe("invalid credentials");
+  });
+});
+
+describe("ForbiddenScopeError", () => {
+  it("has status 403 and code FORBIDDEN_SCOPE", () => {
+    const e = new ForbiddenScopeError("token not permitted for this organization");
+    expect(e.statusCode).toBe(403);
+    expect(e.code).toBe("FORBIDDEN_SCOPE");
   });
 });

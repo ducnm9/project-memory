@@ -69,4 +69,21 @@ describe("parseRepositoryUrl", () => {
     expect(parseRepositoryUrl("https://github.com")).toBeNull();
     expect(parseRepositoryUrl("ftp://github.com/a/b")).toBeNull();
   });
+
+  it("rejects scheme-without-// and non-host left sides", () => {
+    expect(parseRepositoryUrl("https:github.com/acme/widgets")).toBeNull();
+    expect(parseRepositoryUrl("http:/github.com/acme/widgets")).toBeNull();
+    expect(parseRepositoryUrl("foo:bar")).toBeNull();
+    expect(parseRepositoryUrl("C:/Users/x")).toBeNull();
+  });
+
+  it("accepts a dotted host:path scp form without a user", () => {
+    expect(parseRepositoryUrl("github.com:acme/widgets")?.url)
+      .toBe("https://github.com/acme/widgets");
+  });
+
+  it("rejects a malformed host", () => {
+    expect(parseRepositoryUrl("https://-foo.com/a/b")).toBeNull();
+    expect(parseRepositoryUrl("foo..com:acme/x")).toBeNull();
+  });
 });

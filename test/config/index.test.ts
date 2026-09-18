@@ -31,6 +31,8 @@ describe("loadConfig", () => {
       PORT: "8080",
       NODE_ENV: "production",
       LOG_LEVEL: "debug",
+      AUTH_ADMIN_KEY: "admin-secret",
+      AUTH_TOKEN_PEPPER: "pepper-secret",
     });
     expect(cfg.port).toBe(8080);
     expect(cfg.nodeEnv).toBe("production");
@@ -64,5 +66,44 @@ describe("loadConfig", () => {
     expect(() =>
       loadConfig({ MONGODB_URI: "mongodb://localhost:27017", MONGODB_DB_NAME: "pm", HOST: "" }),
     ).toThrow(/HOST/);
+  });
+
+  it("defaults auth admin key and pepper to empty in development", () => {
+    const cfg = loadConfig({ MONGODB_URI: "mongodb://localhost:27017", MONGODB_DB_NAME: "pm" });
+    expect(cfg.authAdminKey).toBe("");
+    expect(cfg.authTokenPepper).toBe("");
+  });
+
+  it("reads auth admin key and pepper when provided", () => {
+    const cfg = loadConfig({
+      MONGODB_URI: "mongodb://localhost:27017",
+      MONGODB_DB_NAME: "pm",
+      AUTH_ADMIN_KEY: "admin-secret",
+      AUTH_TOKEN_PEPPER: "pepper-secret",
+    });
+    expect(cfg.authAdminKey).toBe("admin-secret");
+    expect(cfg.authTokenPepper).toBe("pepper-secret");
+  });
+
+  it("fails fast when AUTH_ADMIN_KEY is missing in production", () => {
+    expect(() =>
+      loadConfig({
+        MONGODB_URI: "mongodb://localhost:27017",
+        MONGODB_DB_NAME: "pm",
+        NODE_ENV: "production",
+        AUTH_TOKEN_PEPPER: "p",
+      }),
+    ).toThrow(/AUTH_ADMIN_KEY/);
+  });
+
+  it("fails fast when AUTH_TOKEN_PEPPER is missing in production", () => {
+    expect(() =>
+      loadConfig({
+        MONGODB_URI: "mongodb://localhost:27017",
+        MONGODB_DB_NAME: "pm",
+        NODE_ENV: "production",
+        AUTH_ADMIN_KEY: "a",
+      }),
+    ).toThrow(/AUTH_TOKEN_PEPPER/);
   });
 });

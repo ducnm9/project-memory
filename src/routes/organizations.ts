@@ -21,15 +21,18 @@ function parseOrThrow<T>(
 export function registerOrganizationRoutes(app: FastifyInstance): void {
   const repo = () => createRepository(app.db);
 
-  app.post("/organizations", async (req, reply) => {
+  const ADMIN = { config: { auth: "admin" as const } };
+  const BEARER = { config: { auth: "bearer" as const } };
+
+  app.post("/organizations", ADMIN, async (req, reply) => {
     const { name } = parseOrThrow(createOrgBodySchema, req.body, "name is required");
     reply.status(201);
     return repo().createOrganization(name);
   });
 
-  app.get("/organizations", async () => ({ organizations: await repo().listOrganizations() }));
+  app.get("/organizations", BEARER, async () => ({ organizations: await repo().listOrganizations() }));
 
-  app.get("/organizations/:orgId", async (req) => {
+  app.get("/organizations/:orgId", BEARER, async (req) => {
     const { orgId } = req.params as { orgId: string };
     parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
     const org = await repo().getOrganization(orgId);
@@ -37,7 +40,7 @@ export function registerOrganizationRoutes(app: FastifyInstance): void {
     return org;
   });
 
-  app.post("/organizations/:orgId/projects", async (req, reply) => {
+  app.post("/organizations/:orgId/projects", BEARER, async (req, reply) => {
     const { orgId } = req.params as { orgId: string };
     parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
     const { name } = parseOrThrow(createProjectBodySchema, req.body, "name is required");
@@ -46,14 +49,14 @@ export function registerOrganizationRoutes(app: FastifyInstance): void {
     return repo().createProject(orgId, name);
   });
 
-  app.get("/organizations/:orgId/projects", async (req) => {
+  app.get("/organizations/:orgId/projects", BEARER, async (req) => {
     const { orgId } = req.params as { orgId: string };
     parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
     if (!(await repo().getOrganization(orgId))) throw new TenantNotFoundError();
     return { projects: await repo().listProjects(orgId) };
   });
 
-  app.get("/organizations/:orgId/projects/:projectId", async (req) => {
+  app.get("/organizations/:orgId/projects/:projectId", BEARER, async (req) => {
     const { orgId, projectId } = req.params as { orgId: string; projectId: string };
     parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
     parseOrThrow(projectIdSchema, projectId, "project id is malformed");

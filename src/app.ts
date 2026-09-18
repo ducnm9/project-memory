@@ -5,6 +5,8 @@ import { registerErrorHandler } from "./plugins/error-handler.js";
 import { registerHealthRoutes } from "./routes/health.js";
 import { registerTenantContext } from "./plugins/tenant-context.js";
 import { registerOrganizationRoutes } from "./routes/organizations.js";
+import { registerAuthentication } from "./plugins/authentication.js";
+import { registerTokenRoutes } from "./routes/tokens.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -26,8 +28,10 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
 
   registerErrorHandler(app);
   registerHealthRoutes(app);
+  registerAuthentication(app, config);
   registerTenantContext(app);
   registerOrganizationRoutes(app);
+  registerTokenRoutes(app, config.authTokenPepper);
 
   return app;
 }

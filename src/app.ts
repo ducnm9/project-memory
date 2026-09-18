@@ -7,6 +7,7 @@ import { registerTenantContext } from "./plugins/tenant-context.js";
 import { registerOrganizationRoutes } from "./routes/organizations.js";
 import { registerAuthentication } from "./plugins/authentication.js";
 import { registerTokenRoutes } from "./routes/tokens.js";
+import { registerRepositoryRoutes } from "./routes/repositories.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -31,6 +32,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerAuthentication(app, config);
   registerTenantContext(app);
   registerOrganizationRoutes(app);
+  registerRepositoryRoutes(app);
   registerTokenRoutes(app, config.authTokenPepper);
 
   return app;

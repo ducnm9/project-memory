@@ -21,3 +21,15 @@ export class NotFoundError extends AppError {
     super(message, 404, "NOT_FOUND");
   }
 }
+
+export class InvalidTenantScopeError extends AppError {
+  constructor(message: string) {
+    super(message, 400, "INVALID_TENANT_SCOPE");
+  }
+}
+
+export class TenantNotFoundError extends AppError {
+  constructor() {
+    super("organization or project not found", 404, "TENANT_NOT_FOUND");
+  }
+}

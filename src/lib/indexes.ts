@@ -48,6 +48,14 @@ const ROOT_COLLECTION_INDEXES: ReadonlyArray<CollectionIndexes> = [
       { key: { organizationId: 1 }, name: "org_lookup" },
     ],
   },
+  {
+    collection: "service_tokens",
+    indexes: [
+      { key: { id: 1 }, name: "id_unique", unique: true },
+      { key: { hashedSecret: 1 }, name: "hashed_secret_unique", unique: true },
+      { key: { organizationId: 1 }, name: "org_lookup" },
+    ],
+  },
 ];
 
 export const ROOT_INDEXES = ROOT_COLLECTION_INDEXES;

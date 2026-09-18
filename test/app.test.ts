@@ -12,7 +12,23 @@ function testConfig() {
     LOG_LEVEL: "silent",
     MONGODB_URI: "mongodb://localhost:27017",
     MONGODB_DB_NAME: "pm",
+    AUTH_ADMIN_KEY: "admin-secret",
+    AUTH_TOKEN_PEPPER: "pepper",
   });
+}
+
+function authDb(): Db {
+  return {
+    command: async () => ({ ok: 1 }),
+    collection: () => ({
+      find: () => ({ toArray: async () => [] }),
+      findOne: async () => null,
+    }),
+  } as unknown as Db;
+}
+
+function buildTestApp() {
+  return buildApp({ config: testConfig(), db: authDb() });
 }
 
 describe("buildApp", () => {
@@ -33,7 +49,7 @@ describe("buildApp", () => {
 
   it("wires the error handler for unknown errors", async () => {
     const app = buildApp({ config: testConfig(), db: fakeDb() });
-    app.get("/boom", async () => {
+    app.get("/boom", { config: { auth: "public" } }, async () => {
       throw new Error("should not leak");
     });
     const res = await app.inject({ method: "GET", url: "/boom" });
@@ -51,9 +67,35 @@ describe("buildApp tenancy wiring", () => {
       collection: () => ({ insertOne }),
     } as unknown as Db;
     const app = buildApp({ config: testConfig(), db });
-    const res = await app.inject({ method: "POST", url: "/organizations", payload: { name: "Acme" } });
+    const res = await app.inject({
+      method: "POST",
+      url: "/organizations",
+      headers: { "x-admin-key": "admin-secret" },
+      payload: { name: "Acme" },
+    });
     expect(res.statusCode).toBe(201);
     expect(res.json().id).toMatch(/^org_/);
+    await app.close();
+  });
+
+  it("serves /health without credentials (public)", async () => {
+    const app = buildTestApp();
+    const res = await app.inject({ method: "GET", url: "/health" });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("rejects GET /organizations without a bearer token (401)", async () => {
+    const app = buildTestApp();
+    const res = await app.inject({ method: "GET", url: "/organizations" });
+    expect(res.statusCode).toBe(401);
+    await app.close();
+  });
+
+  it("rejects POST /organizations without the admin key (401)", async () => {
+    const app = buildTestApp();
+    const res = await app.inject({ method: "POST", url: "/organizations", payload: { name: "Acme" } });
+    expect(res.statusCode).toBe(401);
     await app.close();
   });
 });

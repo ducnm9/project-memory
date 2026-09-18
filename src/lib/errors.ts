@@ -33,3 +33,16 @@ export class TenantNotFoundError extends AppError {
     super("organization or project not found", 404, "TENANT_NOT_FOUND");
   }
 }
+
+
+export class UnauthorizedError extends AppError {
+  constructor(message: string) {
+    super(message, 401, "UNAUTHORIZED");
+  }
+}
+
+export class ForbiddenScopeError extends AppError {
+  constructor(message: string) {
+    super(message, 403, "FORBIDDEN_SCOPE");
+  }
+}

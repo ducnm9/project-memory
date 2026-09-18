@@ -46,3 +46,21 @@ export class ForbiddenScopeError extends AppError {
     super(message, 403, "FORBIDDEN_SCOPE");
   }
 }
+
+export class InvalidRepositoryUrlError extends AppError {
+  constructor(message = "repository url is missing or malformed") {
+    super(message, 400, "INVALID_REPOSITORY_URL");
+  }
+}
+
+export class RepositoryConflictError extends AppError {
+  constructor(message = "repository is already bound to a different project") {
+    super(message, 409, "REPOSITORY_ALREADY_BOUND");
+  }
+}
+
+export class RepositoryNotFoundError extends AppError {
+  constructor(message = "repository binding not found") {
+    super(message, 404, "REPOSITORY_NOT_FOUND");
+  }
+}

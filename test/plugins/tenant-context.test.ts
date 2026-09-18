@@ -39,6 +39,20 @@ function buildAppWithActor(db: Db, actorOrgId: string): FastifyInstance {
   return app;
 }
 
+function buildAppWithActorAtPath(db: Db, actorOrgId: string): FastifyInstance {
+  const app = Fastify({ logger: false });
+  app.decorate("db", db);
+  registerErrorHandler(app);
+  app.addHook("onRequest", async (req) => {
+    (req as unknown as { actor: unknown }).actor = {
+      actorId: "tok_x", organizationId: actorOrgId, type: "service",
+    };
+  });
+  registerTenantContext(app);
+  app.get("/org/:orgId/probe", async (req) => ({ ctx: req.projectContext ?? null }));
+  return app;
+}
+
 describe("tenant-context plugin", () => {
   it("attaches org-shared context when only org header is present", async () => {
     const app = buildApp(dbOrgOnly());
@@ -87,6 +101,37 @@ describe("tenant-context org enforcement", () => {
     const other = newOrgId();
     const app = buildAppWithActor(dbOrgOnly(), other);
     const res = await app.inject({ method: "GET", url: "/probe", headers: { "x-organization-id": orgId } });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe("FORBIDDEN_SCOPE");
+    await app.close();
+  });
+});
+
+describe("tenant-context path-param org enforcement", () => {
+  it("rejects with 403 when the path org differs from the actor org and no header is sent", async () => {
+    const other = newOrgId();
+    const app = buildAppWithActorAtPath(dbOrgOnly(), other);
+    const res = await app.inject({ method: "GET", url: `/org/${orgId}/probe` });
+    expect(res.statusCode).toBe(403);
+    expect(res.json().error.code).toBe("FORBIDDEN_SCOPE");
+    await app.close();
+  });
+
+  it("allows a path org matching the actor org when no header is sent", async () => {
+    const app = buildAppWithActorAtPath(dbOrgOnly(), orgId);
+    const res = await app.inject({ method: "GET", url: `/org/${orgId}/probe` });
+    expect(res.statusCode).toBe(200);
+    await app.close();
+  });
+
+  it("rejects with 403 when the header matches but the path org differs", async () => {
+    const other = newOrgId();
+    const app = buildAppWithActorAtPath(dbOrgOnly(), orgId);
+    const res = await app.inject({
+      method: "GET",
+      url: `/org/${other}/probe`,
+      headers: { "x-organization-id": orgId },
+    });
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe("FORBIDDEN_SCOPE");
     await app.close();

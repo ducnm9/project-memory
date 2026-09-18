@@ -6,7 +6,7 @@ import {
   orgIdSchema,
   projectIdSchema,
 } from "../modules/project-context/entities.js";
-import { InvalidTenantScopeError, TenantNotFoundError } from "../lib/errors.js";
+import { InvalidTenantScopeError, TenantNotFoundError, UnauthorizedError } from "../lib/errors.js";
 
 function parseOrThrow<T>(
   schema: { safeParse(v: unknown): { success: boolean; data?: T } },
@@ -30,7 +30,12 @@ export function registerOrganizationRoutes(app: FastifyInstance): void {
     return repo().createOrganization(name);
   });
 
-  app.get("/organizations", BEARER, async () => ({ organizations: await repo().listOrganizations() }));
+  app.get("/organizations", BEARER, async (req) => {
+    const actor = req.actor;
+    if (!actor) throw new UnauthorizedError("missing credentials");
+    const organization = await repo().getOrganization(actor.organizationId);
+    return { organizations: organization ? [organization] : [] };
+  });
 
   app.get("/organizations/:orgId", BEARER, async (req) => {
     const { orgId } = req.params as { orgId: string };

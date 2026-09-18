@@ -11,7 +11,6 @@ function repoStub(over: Partial<ProjectContextRepository> = {}): ProjectContextR
   return {
     createOrganization: async () => { throw new Error("unused"); },
     getOrganization: async () => null,
-    listOrganizations: async () => [],
     createProject: async () => { throw new Error("unused"); },
     getProject: async () => null,
     listProjects: async () => [],

@@ -957,6 +957,17 @@ describe("POST .../repositories", () => {
     await app.close();
   });
 
+  it("returns 400 INVALID_REPOSITORY_URL when the body has no repositoryUrl", async () => {
+    const app = buildApp({
+      projects: { findOne: vi.fn().mockResolvedValue(project) },
+      repositories: {},
+    });
+    const res = await app.inject({ method: "POST", url: collectionUrl, payload: {} });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("INVALID_REPOSITORY_URL");
+    await app.close();
+  });
+
   it("returns 404 when the project does not exist in the org", async () => {
     const app = buildApp({ projects: { findOne: vi.fn().mockResolvedValue(null) }, repositories: {} });
     const res = await app.inject({
@@ -1151,7 +1162,9 @@ export function registerRepositoryRoutes(app: FastifyInstance): void {
     const { orgId, projectId } = req.params as { orgId: string; projectId: string };
     parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
     parseOrThrow(projectIdSchema, projectId, "project id is malformed");
-    const body = parseOrThrow(connectRepositoryBodySchema, req.body, "repositoryUrl is required");
+    const parsedBody = connectRepositoryBodySchema.safeParse(req.body);
+    if (!parsedBody.success) throw new InvalidRepositoryUrlError();
+    const body = parsedBody.data;
 
     await requireProject(orgId, projectId);
 

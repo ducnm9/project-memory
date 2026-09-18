@@ -1379,6 +1379,16 @@ git commit -m "test(pm-005): end-to-end repository binding and org isolation"
 
 ---
 
+## Post-review amendments (final whole-branch review)
+
+Three requirements were missing from this plan and were added in the final fix wave:
+
+1. **`GET /organizations` scoped to the caller's org** (security). PM-004 left `GET /organizations` listing every organization to any bearer token; PM-004's own design note said it should "effectively return at most the caller's own org". The handler now returns only the organization named by `req.actor.organizationId`. Files: `src/routes/organizations.ts`, `test/routes/organizations.test.ts`.
+2. **Full end-to-end sequence** (spec §10): connect → resolve `200` → `DELETE 204` → resolve `404` → re-bind `201`, exercised through `buildApp` with a stateful in-memory `Db` stub in `test/routes/repositories-e2e.test.ts`.
+3. **`src/modules/project-context/README.md`** status refreshed (spec §11 deliverable), plus a trailing newline restored to `src/lib/errors.ts`.
+
+---
+
 ## Verification Checklist (run before declaring done)
 
 - [ ] `npm run check` passes (lint + typecheck + full test suite).

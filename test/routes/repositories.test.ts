@@ -123,6 +123,16 @@ describe("POST .../repositories", () => {
     expect(res.json().id).toBe(repositoryId);
     await app.close();
   });
+  it("returns 400 INVALID_REPOSITORY_URL when the body has no repositoryUrl", async () => {
+    const app = buildApp({
+      projects: { findOne: vi.fn().mockResolvedValue(project) },
+      repositories: {},
+    });
+    const res = await app.inject({ method: "POST", url: collectionUrl, payload: {} });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("INVALID_REPOSITORY_URL");
+    await app.close();
+  });
 });
 
 describe("GET .../repositories", () => {

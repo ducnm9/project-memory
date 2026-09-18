@@ -117,8 +117,8 @@ Units (each one purpose):
   tested alone (mirrors `modules/auth/secret.ts`).
 - **`src/modules/repository-binding/repository.ts`** — persistence:
   `createRepositoryStore(db)` returning `createRepository`, `findActiveByUrl`,
-  `findActiveById`, `listActiveByProject`, `markUnbound`. Depends on `Db`;
-  not tenant-scoped (a binding is an identity root, like projects).
+  `listActiveByProject`, `markUnbound`. Depends on `Db`; not tenant-scoped (a
+  binding is an identity root, like projects).
 - **`src/modules/repository-binding/resolver.ts`** —
   `resolveProjectByRepository(store, organizationId, repositoryUrl)`. Depends
   on `url` + `repository`; transport-agnostic and reusable from MCP PM-051.

@@ -16,16 +16,25 @@ function header(req: FastifyRequest, name: string): string | undefined {
 
 export function registerTenantContext(app: FastifyInstance): void {
   app.addHook("onRequest", async (req) => {
-    const organizationId = header(req, "x-organization-id");
-    if (organizationId === undefined) return; // no-op; path-scoped routes handle their own ids
+    const headerOrgId = header(req, "x-organization-id");
+    const pathOrgId = (req.params as { orgId?: string } | undefined)?.orgId;
 
-    if (req.actor && req.actor.organizationId !== organizationId) {
-      throw new ForbiddenScopeError("token not permitted for this organization");
+    // PM-005: every organization this request claims — header or path param —
+    // must match the authenticated actor. Path-parameter routes carry their
+    // scope in :orgId, so checking the header alone leaves them unenforced.
+    if (req.actor) {
+      for (const claimed of [headerOrgId, pathOrgId]) {
+        if (claimed !== undefined && req.actor.organizationId !== claimed) {
+          throw new ForbiddenScopeError("token not permitted for this organization");
+        }
+      }
     }
+
+    if (headerOrgId === undefined) return; // no header → no context; path routes check existence themselves
 
     const repo = createRepository(app.db);
     req.projectContext = await resolveContext(repo, {
-      organizationId,
+      organizationId: headerOrgId,
       projectId: header(req, "x-project-id"),
     });
   });

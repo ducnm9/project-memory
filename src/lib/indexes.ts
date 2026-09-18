@@ -24,12 +24,26 @@ const CORE_COLLECTIONS = [
   "knowledge_gaps",
 ] as const;
 
+type CoreCollection = (typeof CORE_COLLECTIONS)[number];
+
 /**
- * Declarative index table. PM-002 seeds the shared tenancy index on every core
- * collection. Later model tickets append their specialized indexes here.
+ * Specialized indexes appended after the shared tenancy index. PM-010 adds
+ * knowledge-item identity and lookup indexes; later model tickets extend this
+ * table for their own collection.
  */
+const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly IndexSpec[]>> = {
+  knowledge_items: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, type: 1 }, name: "project_type" },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+  ],
+};
+
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(
-  (collection) => ({ collection, indexes: [TENANCY_INDEX] }),
+  (collection) => ({
+    collection,
+    indexes: [TENANCY_INDEX, ...(CORE_COLLECTION_EXTRA_INDEXES[collection] ?? [])],
+  }),
 );
 
 /**

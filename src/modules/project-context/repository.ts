@@ -11,7 +11,6 @@ const READ_OPTS = { projection: { _id: 0 } } as const;
 export interface ProjectContextRepository {
   createOrganization(name: string): Promise<Organization>;
   getOrganization(id: string): Promise<Organization | null>;
-  listOrganizations(): Promise<Organization[]>;
   createProject(organizationId: string, name: string): Promise<Project>;
   getProject(organizationId: string, id: string): Promise<Project | null>;
   listProjects(organizationId: string): Promise<Project[]>;
@@ -30,9 +29,6 @@ export function createRepository(db: Db): ProjectContextRepository {
     },
     async getOrganization(id) {
       return orgs().findOne({ id }, READ_OPTS) as Promise<Organization | null>;
-    },
-    async listOrganizations() {
-      return orgs().find({}, READ_OPTS).toArray() as Promise<Organization[]>;
     },
     async createProject(organizationId, name) {
       const now = new Date().toISOString();

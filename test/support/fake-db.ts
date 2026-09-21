@@ -21,9 +21,11 @@ function stripId(row: Row): Row {
 }
 
 export function createFakeDb(seed: Collections = {}): FakeDb {
-  const rows: Collections = Object.fromEntries(
-    Object.entries(seed).map(([name, list]) => [name, [...list]]),
-  );
+  // Use the seed object itself as the live store: copy each collection's array
+  // (so caller-owned seed arrays aren't mutated) but keep writes — including new
+  // collections created on first insert — visible on the returned `rows`.
+  const rows: Collections = seed;
+  for (const [name, list] of Object.entries(seed)) rows[name] = [...list];
 
   const db = {
     collection: (name: string) => {

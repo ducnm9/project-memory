@@ -66,6 +66,7 @@ export const updateKnowledgeItemBodySchema = z
     summary: nonEmpty.optional(),
     content: z.record(z.unknown()).optional(),
     status: knowledgeStatusSchema.optional(),
+    changeSummary: z.string().trim().min(1).optional(),
   })
   .strict();
 

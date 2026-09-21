@@ -49,7 +49,10 @@ describe("knowledge end-to-end", () => {
 
     const created = await app.inject({
       method: "POST", url: "/knowledge", headers,
-      payload: { projectId, type: "Decision", title: "Use AuditLog v2", summary: "Standardized audit schema." },
+      payload: {
+        projectId, type: "Decision", title: "Use AuditLog v2", summary: "Standardized audit schema.",
+        content: { context: "c", problem: "p", decision: "d" },
+      },
     });
     expect(created.statusCode).toBe(201);
     const id = created.json().id;

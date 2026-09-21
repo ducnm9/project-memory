@@ -87,7 +87,7 @@ export function createKnowledgeItemStore(db: Db): KnowledgeItemStore {
     async update(organizationId, id, patch) {
       const result = await col().findOneAndUpdate(
         { id, organizationId },
-        { $set: { ...patch, updatedAt: new Date().toISOString() } },
+        { $set: { ...patch, updatedAt: new Date().toISOString() }, $inc: { version: 1 } },
         { returnDocument: "after", projection: { _id: 0 } },
       );
       return result as KnowledgeItem | null;

@@ -13,6 +13,7 @@ import {
   createKnowledgeItemStore,
   type KnowledgeItemFilter,
 } from "../modules/knowledge-core/repository.js";
+import { validateContent } from "../modules/knowledge-core/contracts.js";
 import { assertTransition, isInitialStatus } from "../modules/knowledge-core/lifecycle.js";
 import {
   InvalidKnowledgeTypeError,
@@ -76,13 +77,15 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     await requireProject(ctx.organizationId, body.projectId);
 
+    const content = validateContent(body.type, body.content);
+
     const item = await store().create({
       organizationId: ctx.organizationId,
       projectId: body.projectId,
       type: body.type,
       title: body.title,
       summary: body.summary,
-      content: body.content,
+      content,
       status: body.status ?? "DISCOVERED",
       ownerId: actor.actorId,
     });

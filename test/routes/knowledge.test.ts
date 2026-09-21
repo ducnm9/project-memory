@@ -33,14 +33,17 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Decision", title: "t", summary: "s" },
+      payload: {
+        projectId, type: "Decision", title: "t", summary: "s",
+        content: { context: "c", problem: "p", decision: "d" },
+      },
     });
     expect(res.statusCode).toBe(201);
     const body = res.json();
     expect(body._id).toBeUndefined();
     expect(body.id).toMatch(/^know_/);
     expect(body.status).toBe("DISCOVERED");
-    expect(body.content).toEqual({});
+    expect(body.content).toEqual({ context: "c", problem: "p", decision: "d" });
     expect(body.ownerId).toBe("tok_1");
     expect(body.organizationId).toBe(orgId);
     await app.close();
@@ -51,7 +54,7 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Decision", title: "t", summary: "s", status: "PROPOSED" },
+      payload: { projectId, type: "Decision", title: "t", summary: "s", status: "PROPOSED", content: { context: "c", problem: "p", decision: "d" } },
     });
     expect(res.statusCode).toBe(201);
     expect(res.json().status).toBe("PROPOSED");
@@ -63,7 +66,7 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Fact", title: "t", summary: "s" },
+      payload: { projectId, type: "Bogus", title: "t", summary: "s" },
     });
     expect(res.statusCode).toBe(422);
     expect(res.json().error.code).toBe("INVALID_KNOWLEDGE_TYPE");
@@ -75,7 +78,7 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Decision", title: "t", summary: "s", status: "ACCEPTED" },
+      payload: { projectId, type: "Decision", title: "t", summary: "s", status: "ACCEPTED", content: { context: "c", problem: "p", decision: "d" } },
     });
     expect(res.statusCode).toBe(422);
     expect(res.json().error.code).toBe("INVALID_STATUS_TRANSITION");
@@ -99,7 +102,7 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Decision", title: "t", summary: "s" },
+      payload: { projectId, type: "Decision", title: "t", summary: "s", content: { context: "c", problem: "p", decision: "d" } },
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe("TENANT_NOT_FOUND");
@@ -123,7 +126,7 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId: "not-a-project", type: "Decision", title: "t", summary: "s" },
+      payload: { projectId: "not-a-project", type: "Decision", title: "t", summary: "s", content: { context: "c", problem: "p", decision: "d" } },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe("VALIDATION_ERROR");
@@ -135,10 +138,53 @@ describe("POST /knowledge", () => {
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
-      payload: { projectId, type: "Decision", title: "t", summary: "s" },
+      payload: { projectId, type: "Decision", title: "t", summary: "s", content: { context: "c", problem: "p", decision: "d" } },
     });
     expect(res.statusCode).toBe(400);
     expect(res.json().error.code).toBe("INVALID_TENANT_SCOPE");
+    await app.close();
+  });
+
+  it("rejects content that violates its type contract with 400", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: {
+        projectId, type: "Decision", title: "t", summary: "s",
+        content: { context: "c" },
+      },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("creates a valid Fact (the seventh type) with 201", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: {
+        projectId, type: "Fact", title: "t", summary: "s",
+        content: { subject: "a", predicate: "depends_on", object: "b" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().type).toBe("Fact");
+    expect(res.json().content).toEqual({ subject: "a", predicate: "depends_on", object: "b" });
+    await app.close();
+  });
+
+  it("rejects an empty content object for a type that requires fields", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: { projectId, type: "Decision", title: "t", summary: "s", content: {} },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
     await app.close();
   });
 });

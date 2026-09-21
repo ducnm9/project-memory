@@ -142,6 +142,10 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       assertTransition(existing.status, patch.status);
     }
 
+    if (patch.content !== undefined) {
+      patch.content = validateContent(existing.type, patch.content);
+    }
+
     const updated = await store().update(ctx.organizationId, id, patch);
     if (!updated) throw new KnowledgeNotFoundError();
     return updated;

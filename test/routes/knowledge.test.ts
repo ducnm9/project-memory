@@ -235,7 +235,7 @@ describe("GET /knowledge", () => {
     const proposed = await app.inject({ method: "GET", url: "/knowledge?status=PROPOSED" });
     expect(proposed.json().items).toHaveLength(1);
 
-    const badType = await app.inject({ method: "GET", url: "/knowledge?type=Fact" });
+    const badType = await app.inject({ method: "GET", url: "/knowledge?type=Bogus" });
     expect(badType.statusCode).toBe(400);
     expect(badType.json().error.code).toBe("VALIDATION_ERROR");
 
@@ -336,6 +336,33 @@ describe("PATCH /knowledge/:id", () => {
     });
     expect(res.statusCode).toBe(404);
     expect(res.json().error.code).toBe("KNOWLEDGE_NOT_FOUND");
+    await app.close();
+  });
+
+  it("validates replacement content against the item's existing type", async () => {
+    const item = { ...published, status: "DISCOVERED", content: { context: "c", problem: "p", decision: "d" } };
+    const app = buildApp({ projects: [project], knowledge_items: [item] });
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/knowledge/${item.id}`,
+      payload: { content: { context: "only-context" } },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.code).toBe("VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("accepts valid replacement content and returns it", async () => {
+    const item = { ...published, status: "DISCOVERED", content: { context: "c", problem: "p", decision: "d" } };
+    const app = buildApp({ projects: [project], knowledge_items: [item] });
+    const next = { context: "c2", problem: "p2", decision: "d2" };
+    const res = await app.inject({
+      method: "PATCH",
+      url: `/knowledge/${item.id}`,
+      payload: { content: next },
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().content).toEqual(next);
     await app.close();
   });
 });

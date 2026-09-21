@@ -8,6 +8,7 @@ export const KNOWLEDGE_TYPES = [
   "Troubleshooting",
   "Investigation",
   "Architecture",
+  "Fact",
 ] as const;
 export type KnowledgeType = (typeof KNOWLEDGE_TYPES)[number];
 

@@ -39,13 +39,41 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           const found = list.find((r) => matches(r, filter));
           return found ? stripId(found) : null;
         },
-        find: (filter: Row) => ({
-          toArray: async () => list.filter((r) => matches(r, filter)).map(stripId),
-        }),
-        findOneAndUpdate: async (filter: Row, update: { $set: Row }) => {
+        find: (filter: Row) => {
+          let sortKey: string | null = null;
+          let sortDir: 1 | -1 = 1;
+          function toArray() {
+            let results = list.filter((r) => matches(r, filter)).map(stripId);
+            if (sortKey) {
+              const key = sortKey;
+              const dir = sortDir;
+              results = results.sort((a, b) => {
+                const av = a[key] as number;
+                const bv = b[key] as number;
+                return dir * (av < bv ? -1 : av > bv ? 1 : 0);
+              });
+            }
+            return Promise.resolve(results);
+          }
+          return {
+            sort: (spec: Record<string, 1 | -1>) => {
+              const [key, dir] = Object.entries(spec)[0];
+              sortKey = key;
+              sortDir = dir;
+              return { toArray };
+            },
+            toArray,
+          };
+        },
+        findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row }) => {
           const row = list.find((r) => matches(r, filter));
           if (!row) return null;
-          Object.assign(row, update.$set);
+          if (update.$set) Object.assign(row, update.$set);
+          if (update.$inc) {
+            for (const [key, delta] of Object.entries(update.$inc)) {
+              row[key] = ((row[key] as number) ?? 0) + (delta as number);
+            }
+          }
           return stripId(row);
         },
         deleteOne: async (filter: Row) => {

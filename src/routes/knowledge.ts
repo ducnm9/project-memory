@@ -13,6 +13,7 @@ import {
   createKnowledgeItemStore,
   type KnowledgeItemFilter,
 } from "../modules/knowledge-core/repository.js";
+import { createKnowledgeVersionStore } from "../modules/knowledge-core/version-repository.js";
 import { validateContent } from "../modules/knowledge-core/contracts.js";
 import { assertTransition, isInitialStatus } from "../modules/knowledge-core/lifecycle.js";
 import {
@@ -45,6 +46,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   const BEARER = { config: { auth: "bearer" as const } };
   const projects = () => createProjectContextRepository(app.db);
   const store = () => createKnowledgeItemStore(app.db);
+  const vStore = () => createKnowledgeVersionStore(app.db);
 
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
@@ -89,6 +91,14 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       status: body.status ?? "DISCOVERED",
       ownerId: actor.actorId,
     });
+    await vStore().append({
+      organizationId: ctx.organizationId,
+      knowledgeId: item.id,
+      version: item.version,
+      snapshot: item,
+      changedBy: actor.actorId,
+      changeSummary: "initial version",
+    });
     reply.status(201);
     return item;
   });
@@ -130,7 +140,10 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     const parsed = updateKnowledgeItemBodySchema.safeParse(req.body);
     if (!parsed.success) throw new ValidationError("invalid knowledge item patch");
-    const patch = parsed.data;
+    const rawPatch = parsed.data as typeof parsed.data & { changeSummary?: string };
+    const callerSummary: string | undefined = rawPatch.changeSummary;
+    const patch = { ...rawPatch } as Omit<typeof rawPatch, "changeSummary">;
+    delete (patch as Record<string, unknown>).changeSummary;
     if (Object.keys(patch).length === 0) {
       throw new ValidationError("patch must contain at least one field");
     }
@@ -148,6 +161,19 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     const updated = await store().update(ctx.organizationId, id, patch);
     if (!updated) throw new KnowledgeNotFoundError();
+
+    const changedFields = Object.keys(patch).filter((k) => k !== "changeSummary");
+    const changeSummary = callerSummary ?? `changed: ${changedFields.join(", ")}`;
+
+    await vStore().append({
+      organizationId: ctx.organizationId,
+      knowledgeId: updated.id,
+      version: updated.version,
+      snapshot: updated,
+      changedBy: req.actor ? req.actor.actorId : updated.ownerId,
+      changeSummary,
+    });
+
     return updated;
   });
 

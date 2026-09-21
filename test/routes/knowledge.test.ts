@@ -5,6 +5,10 @@ import { registerErrorHandler } from "../../src/plugins/error-handler.js";
 import { newKnowledgeItemId } from "../../src/modules/knowledge-core/entities.js";
 import { newProjectId } from "../../src/modules/project-context/entities.js";
 import { createFakeDb, type Collections } from "../support/fake-db.js";
+import type { KnowledgeVersion } from "../../src/modules/knowledge-core/version-entities.js";
+
+const versionsOf = (rows: Collections): KnowledgeVersion[] =>
+  (rows.knowledge_versions ?? []) as unknown as KnowledgeVersion[];
 
 const orgId = "org_A";
 const projectId = newProjectId();
@@ -394,6 +398,104 @@ describe("DELETE /knowledge/:id", () => {
     const app = buildApp({ projects: [project], knowledge_items: [foreign] });
     const res = await app.inject({ method: "DELETE", url: `/knowledge/${foreign.id}` });
     expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+});
+
+describe("versioning — POST /knowledge writes v1", () => {
+  it("creates version 1 with changeSummary 'initial version' after POST", async () => {
+    const rows = seeded();
+    const app = buildApp(rows);
+    const res = await app.inject({
+      method: "POST",
+      url: "/knowledge",
+      payload: {
+        projectId,
+        type: "Fact",
+        title: "t",
+        summary: "s",
+        content: { subject: "x", predicate: "is" },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const item = res.json();
+    expect(item.version).toBe(1);
+    const versions = versionsOf(rows);
+    expect(versions).toHaveLength(1);
+    expect(versions[0].version).toBe(1);
+    expect(versions[0].changeSummary).toBe("initial version");
+    expect(versions[0].knowledgeId).toBe(item.id);
+    await app.close();
+  });
+});
+
+describe("versioning — PATCH /knowledge/:id writes snapshots", () => {
+  it("after 3 patches there are 4 version records (v1 + 3)", async () => {
+    const rows = seeded();
+    const app = buildApp(rows);
+    const created = (await app.inject({
+      method: "POST", url: "/knowledge",
+      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+    })).json();
+    const id = created.id;
+    await app.inject({ method: "PATCH", url: `/knowledge/${id}`, payload: { title: "t2" } });
+    await app.inject({ method: "PATCH", url: `/knowledge/${id}`, payload: { title: "t3" } });
+    await app.inject({ method: "PATCH", url: `/knowledge/${id}`, payload: { title: "t4" } });
+
+    const versions = versionsOf(rows);
+    expect(versions).toHaveLength(4);
+    const versionNums = versions.map((v) => v.version).sort((a, b) => a - b);
+    expect(versionNums).toEqual([1, 2, 3, 4]);
+    await app.close();
+  });
+
+  it("caller-provided changeSummary is stored verbatim", async () => {
+    const rows = seeded();
+    const app = buildApp(rows);
+    const created = (await app.inject({
+      method: "POST", url: "/knowledge",
+      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+    })).json();
+    await app.inject({
+      method: "PATCH",
+      url: `/knowledge/${created.id}`,
+      payload: { title: "t2", changeSummary: "my note" },
+    });
+    const v2 = versionsOf(rows).find((v) => v.version === 2);
+    expect(v2?.changeSummary).toBe("my note");
+    await app.close();
+  });
+
+  it("auto-generates changeSummary from changed fields when not provided", async () => {
+    const rows = seeded();
+    const app = buildApp(rows);
+    const created = (await app.inject({
+      method: "POST", url: "/knowledge",
+      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+    })).json();
+    await app.inject({
+      method: "PATCH",
+      url: `/knowledge/${created.id}`,
+      payload: { title: "t2", summary: "s2" },
+    });
+    const v2 = versionsOf(rows).find((v) => v.version === 2);
+    expect(v2?.changeSummary).toBe("changed: title, summary");
+    await app.close();
+  });
+
+  it("changeSummary is not stored on the KnowledgeItem itself", async () => {
+    const rows = seeded();
+    const app = buildApp(rows);
+    const created = (await app.inject({
+      method: "POST", url: "/knowledge",
+      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+    })).json();
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/knowledge/${created.id}`,
+      payload: { title: "t2", changeSummary: "my note" },
+    });
+    expect(patchRes.json().changeSummary).toBeUndefined();
     await app.close();
   });
 });

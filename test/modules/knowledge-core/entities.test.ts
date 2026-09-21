@@ -3,9 +3,25 @@ import {
   KNOWLEDGE_TYPES,
   createKnowledgeItemBodySchema,
   knowledgeIdSchema,
+  knowledgeTypeSchema,
   newKnowledgeItemId,
   updateKnowledgeItemBodySchema,
 } from "../../../src/modules/knowledge-core/entities.js";
+
+describe("KNOWLEDGE_TYPES", () => {
+  it("includes all seven knowledge types with Fact", () => {
+    expect(KNOWLEDGE_TYPES).toEqual([
+      "Decision",
+      "Concept",
+      "Procedure",
+      "Troubleshooting",
+      "Investigation",
+      "Architecture",
+      "Fact",
+    ]);
+    expect(knowledgeTypeSchema.safeParse("Fact").success).toBe(true);
+  });
+});
 
 describe("knowledgeIdSchema", () => {
   it("accepts a generated id", () => {
@@ -27,14 +43,14 @@ describe("createKnowledgeItemBodySchema", () => {
     expect(r.status).toBeUndefined();
   });
 
-  it("knows its six types, in order", () => {
+  it("knows its seven types, in order", () => {
     expect(KNOWLEDGE_TYPES).toEqual([
-      "Decision", "Concept", "Procedure", "Troubleshooting", "Investigation", "Architecture",
+      "Decision", "Concept", "Procedure", "Troubleshooting", "Investigation", "Architecture", "Fact",
     ]);
   });
 
   it("rejects an unknown type", () => {
-    expect(createKnowledgeItemBodySchema.safeParse({ ...valid, type: "Fact" }).success).toBe(false);
+    expect(createKnowledgeItemBodySchema.safeParse({ ...valid, type: "Bogus" }).success).toBe(false);
   });
 
   it("rejects missing or blank required fields", () => {

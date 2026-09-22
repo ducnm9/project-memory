@@ -70,15 +70,6 @@ const architecture = z
   })
   .strict();
 
-const fact = z
-  .object({
-    subject: nonEmpty,
-    predicate: nonEmpty,
-    object: z.unknown().optional(),
-    evidence: nonEmptyList.optional(),
-  })
-  .strict();
-
 export const CONTENT_SCHEMAS: Record<KnowledgeType, z.ZodTypeAny> = {
   Decision: decision,
   Concept: concept,
@@ -86,7 +77,6 @@ export const CONTENT_SCHEMAS: Record<KnowledgeType, z.ZodTypeAny> = {
   Troubleshooting: troubleshooting,
   Investigation: investigation,
   Architecture: architecture,
-  Fact: fact,
 };
 
 function describeIssues(issues: z.ZodIssue[]): string {

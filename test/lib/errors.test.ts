@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AppError,
+  FactNotFoundError,
   InvalidKnowledgeTypeError,
   InvalidStatusTransitionError,
   KnowledgeNotFoundError,
@@ -87,5 +88,13 @@ describe("knowledge errors", () => {
     expect(e.code).toBe("INVALID_STATUS_TRANSITION");
     expect(e.message).toContain("PUBLISHED");
     expect(e.message).toContain("DISCOVERED");
+  });
+});
+
+describe("FactNotFoundError", () => {
+  it("is a 404 with code FACT_NOT_FOUND", () => {
+    const err = new FactNotFoundError();
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe("FACT_NOT_FOUND");
   });
 });

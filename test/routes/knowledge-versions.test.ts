@@ -49,10 +49,10 @@ async function seedItemWithPatches(app: FastifyInstance, patches: number): Promi
     url: "/knowledge",
     payload: {
       projectId,
-      type: "Fact",
+      type: "Concept",
       title: "t0",
       summary: "s",
-      content: { subject: "x", predicate: "is" },
+      content: { definition: "d" },
     },
   })).json() as { id: string };
   for (let i = 1; i <= patches; i++) {

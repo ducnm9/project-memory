@@ -10,7 +10,7 @@ function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
     id: "know_ITEM01",
     organizationId: orgId,
     projectId: "proj_A",
-    type: "Fact",
+    type: "Concept",
     title: "t",
     summary: "s",
     content: { subject: "x", predicate: "is" },

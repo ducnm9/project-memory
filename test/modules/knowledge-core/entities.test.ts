@@ -9,7 +9,7 @@ import {
 } from "../../../src/modules/knowledge-core/entities.js";
 
 describe("KNOWLEDGE_TYPES", () => {
-  it("includes all seven knowledge types with Fact", () => {
+  it("includes the six knowledge types", () => {
     expect(KNOWLEDGE_TYPES).toEqual([
       "Decision",
       "Concept",
@@ -17,9 +17,8 @@ describe("KNOWLEDGE_TYPES", () => {
       "Troubleshooting",
       "Investigation",
       "Architecture",
-      "Fact",
     ]);
-    expect(knowledgeTypeSchema.safeParse("Fact").success).toBe(true);
+    expect(knowledgeTypeSchema.safeParse("Fact").success).toBe(false);
   });
 });
 
@@ -43,9 +42,9 @@ describe("createKnowledgeItemBodySchema", () => {
     expect(r.status).toBeUndefined();
   });
 
-  it("knows its seven types, in order", () => {
+  it("knows its six types, in order", () => {
     expect(KNOWLEDGE_TYPES).toEqual([
-      "Decision", "Concept", "Procedure", "Troubleshooting", "Investigation", "Architecture", "Fact",
+      "Decision", "Concept", "Procedure", "Troubleshooting", "Investigation", "Architecture",
     ]);
   });
 

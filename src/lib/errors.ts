@@ -77,6 +77,12 @@ export class SourceNotFoundError extends AppError {
   }
 }
 
+export class FactNotFoundError extends AppError {
+  constructor(message = "fact not found") {
+    super(message, 404, "FACT_NOT_FOUND");
+  }
+}
+
 export class InvalidKnowledgeTypeError extends AppError {
   constructor(message = "knowledge type is not supported") {
     super(message, 422, "INVALID_KNOWLEDGE_TYPE");

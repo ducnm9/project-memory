@@ -12,6 +12,7 @@ const EXPECTED_COLLECTIONS = [
   "proposals",
   "audit_events",
   "knowledge_gaps",
+  "fact_versions",
 ];
 
 describe("CORE_INDEXES", () => {
@@ -124,5 +125,33 @@ describe("sources indexes and error", () => {
     const err = new SourceNotFoundError();
     expect(err.statusCode).toBe(404);
     expect(err.code).toBe("SOURCE_NOT_FOUND");
+  });
+});
+
+describe("facts and fact_versions indexes", () => {
+  it("declares fact identity, predicate, and status lookups", () => {
+    const facts = CORE_INDEXES.find((c) => c.collection === "facts");
+    expect(facts).toBeDefined();
+    const names = facts!.indexes.map((i) => i.name);
+    expect(names).toContain("org_project");
+    expect(names).toContain("id_unique");
+    expect(names).toContain("project_predicate");
+    expect(names).toContain("project_status");
+    expect(facts!.indexes.find((i) => i.name === "id_unique")!.unique).toBe(true);
+    expect(facts!.indexes.find((i) => i.name === "project_predicate")!.key).toEqual({
+      organizationId: 1, projectId: 1, predicate: 1,
+    });
+  });
+
+  it("declares fact_versions identity and fact lookup", () => {
+    const fv = CORE_INDEXES.find((c) => c.collection === "fact_versions");
+    expect(fv).toBeDefined();
+    const names = fv!.indexes.map((i) => i.name);
+    expect(names).toContain("org_project");
+    expect(names).toContain("id_unique");
+    expect(names).toContain("fact_lookup");
+    expect(fv!.indexes.find((i) => i.name === "fact_lookup")!.key).toEqual({
+      organizationId: 1, factId: 1,
+    });
   });
 });

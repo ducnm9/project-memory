@@ -17,13 +17,16 @@ const seeded = (): Collections => ({
   sources: [],
 });
 
+let currentActor = "tok_1";
+
 function buildApp(rows: Collections): FastifyInstance {
+  currentActor = "tok_1"; // default; tests may reassign between injects
   const { db } = createFakeDb(rows);
   const app = Fastify({ logger: false });
   app.decorate("db", db);
   app.addHook("onRequest", async (req) => {
     const enriched = req as unknown as { actor: unknown; projectContext: unknown };
-    enriched.actor = { actorId: "tok_1", organizationId: orgId, type: "service" };
+    enriched.actor = { actorId: currentActor, organizationId: orgId, type: "service" };
     enriched.projectContext = { organizationId: orgId, projectId: null };
   });
   registerErrorHandler(app);
@@ -67,6 +70,20 @@ describe("POST /relations", () => {
     expect(res.statusCode).toBe(404);
     await app.close();
   });
+
+  it("rejects a body containing reviewerId with 400 (strict schema)", async () => {
+    const app = buildApp(seeded());
+    const res = await create(app, { ...validBody, reviewerId: "tok_9" });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("rejects a body containing status with 400 (strict schema)", async () => {
+    const app = buildApp(seeded());
+    const res = await create(app, { ...validBody, status: "ACCEPTED" });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
 });
 
 describe("PATCH /relations/:id reviewer stamping", () => {
@@ -90,9 +107,21 @@ describe("PATCH /relations/:id reviewer stamping", () => {
   it("does not re-stamp reviewer on ACCEPTED -> DEPRECATED", async () => {
     const app = buildApp(seeded());
     const id = (await create(app)).json().id;
+    // Accept as tok_1 -> stamps reviewerId=tok_1.
     await app.inject({ method: "PATCH", url: `/relations/${id}`, payload: { status: "ACCEPTED" } });
+    // Switch actor: if the code re-stamped on this PATCH, reviewerId would become tok_2.
+    currentActor = "tok_2";
     const dep = await app.inject({ method: "PATCH", url: `/relations/${id}`, payload: { status: "DEPRECATED" } });
     expect(dep.json().reviewerId).toBe("tok_1");
+    currentActor = "tok_1";
+    await app.close();
+  });
+
+  it("rejects a PATCH body containing reviewerId with 400 (strict schema)", async () => {
+    const app = buildApp(seeded());
+    const id = (await create(app)).json().id;
+    const res = await app.inject({ method: "PATCH", url: `/relations/${id}`, payload: { status: "ACCEPTED", reviewerId: "tok_9" } });
+    expect(res.statusCode).toBe(400);
     await app.close();
   });
 });
@@ -111,6 +140,13 @@ describe("GET /relations filters and 404s", () => {
     const app = buildApp(seeded());
     const res = await app.inject({ method: "GET", url: "/relations/rel_00000000000000000000000000" });
     expect(res.statusCode).toBe(404);
+    await app.close();
+  });
+
+  it("400 on off-vocabulary predicate filter", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({ method: "GET", url: `/relations?projectId=${projectId}&predicate=causes` });
+    expect(res.statusCode).toBe(400);
     await app.close();
   });
 });

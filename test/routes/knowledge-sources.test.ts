@@ -38,7 +38,7 @@ async function seedItem(app: FastifyInstance): Promise<string> {
   const res = await app.inject({
     method: "POST",
     url: "/knowledge",
-    payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+    payload: { projectId, type: "Concept", title: "t", summary: "s", content: { definition: "d" } },
   });
   return (res.json() as { id: string }).id;
 }
@@ -125,7 +125,7 @@ describe("POST /knowledge/:id/sources", () => {
       id: "know_00000000000000000000000000",
       organizationId: orgId,
       projectId,
-      type: "Fact",
+      type: "Concept",
       title: "legacy",
       summary: "s",
       content: {},

@@ -10,7 +10,7 @@ function makeSnapshot(version: number): KnowledgeItem {
     id: "know_TEST",
     organizationId: orgId,
     projectId: "proj_A",
-    type: "Fact",
+    type: "Concept",
     title: "t",
     summary: "s",
     content: { subject: "x", predicate: "is" },

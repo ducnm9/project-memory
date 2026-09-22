@@ -10,7 +10,6 @@ const validSamples: Record<string, Record<string, unknown>> = {
   Troubleshooting: { symptoms: "s", cause: "c", resolution: "r" },
   Investigation: { question: "q" },
   Architecture: { component: "c", responsibility: "r" },
-  Fact: { subject: "s", predicate: "p" },
 };
 
 describe("CONTENT_SCHEMAS", () => {
@@ -43,10 +42,5 @@ describe("validateContent", () => {
 
   it("trims string fields and strips nothing extra", () => {
     expect(validateContent("Concept", { definition: "  hi  " })).toEqual({ definition: "hi" });
-  });
-
-  it("accepts an arbitrary object value on a Fact", () => {
-    const c = { subject: "s", predicate: "p", object: { nested: 1 } };
-    expect(validateContent("Fact", c)).toEqual(c);
   });
 });

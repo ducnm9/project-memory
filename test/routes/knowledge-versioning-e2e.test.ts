@@ -37,8 +37,8 @@ describe("Knowledge versioning — acceptance criterion", () => {
     const created = (await app.inject({
       method: "POST", url: "/knowledge",
       payload: {
-        projectId, type: "Fact", title: "original", summary: "s",
-        content: { subject: "x", predicate: "is" },
+        projectId, type: "Concept", title: "original", summary: "s",
+        content: { definition: "d" },
       },
     })).json();
     expect(created.version).toBe(1);

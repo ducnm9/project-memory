@@ -164,19 +164,19 @@ describe("POST /knowledge", () => {
     await app.close();
   });
 
-  it("creates a valid Fact (the seventh type) with 201", async () => {
+  it("creates a valid Concept with 201", async () => {
     const app = buildApp(seeded());
     const res = await app.inject({
       method: "POST",
       url: "/knowledge",
       payload: {
-        projectId, type: "Fact", title: "t", summary: "s",
-        content: { subject: "a", predicate: "depends_on", object: "b" },
+        projectId, type: "Concept", title: "t", summary: "s",
+        content: { definition: "d" },
       },
     });
     expect(res.statusCode).toBe(201);
-    expect(res.json().type).toBe("Fact");
-    expect(res.json().content).toEqual({ subject: "a", predicate: "depends_on", object: "b" });
+    expect(res.json().type).toBe("Concept");
+    expect(res.json().content).toEqual({ definition: "d" });
     await app.close();
   });
 
@@ -411,10 +411,10 @@ describe("versioning — POST /knowledge writes v1", () => {
       url: "/knowledge",
       payload: {
         projectId,
-        type: "Fact",
+        type: "Concept",
         title: "t",
         summary: "s",
-        content: { subject: "x", predicate: "is" },
+        content: { definition: "d" },
       },
     });
     expect(res.statusCode).toBe(201);
@@ -435,7 +435,7 @@ describe("versioning — PATCH /knowledge/:id writes snapshots", () => {
     const app = buildApp(rows);
     const created = (await app.inject({
       method: "POST", url: "/knowledge",
-      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+      payload: { projectId, type: "Concept", title: "t", summary: "s", content: { definition: "d" } },
     })).json();
     const id = created.id;
     await app.inject({ method: "PATCH", url: `/knowledge/${id}`, payload: { title: "t2" } });
@@ -454,7 +454,7 @@ describe("versioning — PATCH /knowledge/:id writes snapshots", () => {
     const app = buildApp(rows);
     const created = (await app.inject({
       method: "POST", url: "/knowledge",
-      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+      payload: { projectId, type: "Concept", title: "t", summary: "s", content: { definition: "d" } },
     })).json();
     await app.inject({
       method: "PATCH",
@@ -471,7 +471,7 @@ describe("versioning — PATCH /knowledge/:id writes snapshots", () => {
     const app = buildApp(rows);
     const created = (await app.inject({
       method: "POST", url: "/knowledge",
-      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+      payload: { projectId, type: "Concept", title: "t", summary: "s", content: { definition: "d" } },
     })).json();
     await app.inject({
       method: "PATCH",
@@ -488,7 +488,7 @@ describe("versioning — PATCH /knowledge/:id writes snapshots", () => {
     const app = buildApp(rows);
     const created = (await app.inject({
       method: "POST", url: "/knowledge",
-      payload: { projectId, type: "Fact", title: "t", summary: "s", content: { subject: "x", predicate: "is" } },
+      payload: { projectId, type: "Concept", title: "t", summary: "s", content: { definition: "d" } },
     })).json();
     const patchRes = await app.inject({
       method: "PATCH",

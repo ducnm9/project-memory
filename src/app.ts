@@ -14,6 +14,7 @@ import { registerSourceRoutes } from "./routes/sources.js";
 import { registerFactRoutes } from "./routes/facts.js";
 import { registerFactVersionRoutes } from "./routes/fact-versions.js";
 import { registerRelationRoutes } from "./routes/relations.js";
+import { registerRelationVersionRoutes } from "./routes/relation-versions.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -45,6 +46,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerFactRoutes(app);
   registerFactVersionRoutes(app);
   registerRelationRoutes(app);
+  registerRelationVersionRoutes(app);
   registerTokenRoutes(app, config.authTokenPepper);
 
   return app;

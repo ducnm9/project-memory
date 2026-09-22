@@ -83,3 +83,30 @@ describe("createKnowledgeItemStore writes", () => {
     expect(await store.findById(org, created.id)).toBeNull();
   });
 });
+
+describe("createKnowledgeItemStore.create initializes sourceIds", () => {
+  it("new items start with an empty sourceIds array and version 1", async () => {
+    const { db } = createFakeDb();
+    const item = await createKnowledgeItemStore(db).create(input);
+    expect(item.sourceIds).toEqual([]);
+    expect(item.version).toBe(1);
+  });
+});
+
+describe("createKnowledgeItemStore.setSourceIds", () => {
+  it("sets sourceIds and increments version", async () => {
+    const { db } = createFakeDb();
+    const store = createKnowledgeItemStore(db);
+    const created = await store.create(input);
+    const updated = await store.setSourceIds(org, created.id, ["src_00000000000000000000000000"]);
+    expect(updated).not.toBeNull();
+    expect(updated!.sourceIds).toEqual(["src_00000000000000000000000000"]);
+    expect(updated!.version).toBe(2);
+  });
+
+  it("returns null for an unknown item", async () => {
+    const { db } = createFakeDb();
+    const store = createKnowledgeItemStore(db);
+    expect(await store.setSourceIds(org, "know_00000000000000000000000000", [])).toBeNull();
+  });
+});

@@ -39,6 +39,7 @@ export interface KnowledgeItem {
   createdAt: string;
   updatedAt: string;
   lastVerifiedAt: string | null;
+  sourceIds: string[];
 }
 
 // Crockford base32 (ULID alphabet): no I, L, O, U.

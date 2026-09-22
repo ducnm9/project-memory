@@ -44,6 +44,11 @@ export interface KnowledgeItemStore {
     id: string,
     patch: UpdateKnowledgeItemPatch,
   ): Promise<KnowledgeItem | null>;
+  setSourceIds(
+    organizationId: string,
+    id: string,
+    sourceIds: string[],
+  ): Promise<KnowledgeItem | null>;
   delete(organizationId: string, id: string): Promise<boolean>;
 }
 
@@ -67,6 +72,7 @@ export function createKnowledgeItemStore(db: Db): KnowledgeItemStore {
         createdAt: now,
         updatedAt: now,
         lastVerifiedAt: null,
+        sourceIds: [],
       };
       await col().insertOne({ ...item });
       return item;
@@ -88,6 +94,15 @@ export function createKnowledgeItemStore(db: Db): KnowledgeItemStore {
       const result = await col().findOneAndUpdate(
         { id, organizationId },
         { $set: { ...patch, updatedAt: new Date().toISOString() }, $inc: { version: 1 } },
+        { returnDocument: "after", projection: { _id: 0 } },
+      );
+      return result as KnowledgeItem | null;
+    },
+
+    async setSourceIds(organizationId, id, sourceIds) {
+      const result = await col().findOneAndUpdate(
+        { id, organizationId },
+        { $set: { sourceIds, updatedAt: new Date().toISOString() }, $inc: { version: 1 } },
         { returnDocument: "after", projection: { _id: 0 } },
       );
       return result as KnowledgeItem | null;

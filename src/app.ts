@@ -10,6 +10,7 @@ import { registerTokenRoutes } from "./routes/tokens.js";
 import { registerRepositoryRoutes } from "./routes/repositories.js";
 import { registerKnowledgeRoutes } from "./routes/knowledge.js";
 import { registerKnowledgeVersionRoutes } from "./routes/knowledge-versions.js";
+import { registerSourceRoutes } from "./routes/sources.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -37,6 +38,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerRepositoryRoutes(app);
   registerKnowledgeRoutes(app);
   registerKnowledgeVersionRoutes(app);
+  registerSourceRoutes(app);
   registerTokenRoutes(app, config.authTokenPepper);
 
   return app;

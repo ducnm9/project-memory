@@ -14,6 +14,8 @@ import {
   type KnowledgeItemFilter,
 } from "../modules/knowledge-core/repository.js";
 import { createKnowledgeVersionStore } from "../modules/knowledge-core/version-repository.js";
+import { sourceIdSchema } from "../modules/knowledge-core/source-entities.js";
+import { createSourceStore } from "../modules/knowledge-core/source-repository.js";
 import { validateContent } from "../modules/knowledge-core/contracts.js";
 import { assertTransition, isInitialStatus } from "../modules/knowledge-core/lifecycle.js";
 import {
@@ -21,6 +23,7 @@ import {
   InvalidStatusTransitionError,
   InvalidTenantScopeError,
   KnowledgeNotFoundError,
+  SourceNotFoundError,
   TenantNotFoundError,
   UnauthorizedError,
   ValidationError,
@@ -47,6 +50,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   const projects = () => createProjectContextRepository(app.db);
   const store = () => createKnowledgeItemStore(app.db);
   const vStore = () => createKnowledgeVersionStore(app.db);
+  const sourceStore = () => createSourceStore(app.db);
 
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
@@ -174,6 +178,72 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       changeSummary,
     });
 
+    return updated;
+  });
+
+  app.post("/knowledge/:id/sources", BEARER, async (req) => {
+    const actor = req.actor;
+    if (!actor) throw new UnauthorizedError("missing credentials");
+    const ctx = context(req);
+    const { id } = req.params as { id: string };
+    parseOrThrow(knowledgeIdSchema, id, "knowledge id is malformed");
+
+    const body = (req.body ?? {}) as { sourceId?: unknown };
+    parseOrThrow(sourceIdSchema, body.sourceId, "sourceId is malformed");
+    const sourceId = body.sourceId as string;
+
+    const item = await store().findById(ctx.organizationId, id);
+    if (!item) throw new KnowledgeNotFoundError();
+
+    const source = await sourceStore().findById(ctx.organizationId, sourceId);
+    if (!source) throw new SourceNotFoundError();
+
+    const current = item.sourceIds ?? [];
+    if (current.includes(sourceId)) return item; // idempotent: no bump, no snapshot
+
+    const updated = await store().setSourceIds(ctx.organizationId, id, [...current, sourceId]);
+    if (!updated) throw new KnowledgeNotFoundError();
+
+    await vStore().append({
+      organizationId: ctx.organizationId,
+      knowledgeId: updated.id,
+      version: updated.version,
+      snapshot: updated,
+      changedBy: actor.actorId,
+      changeSummary: `attached source ${sourceId}`,
+    });
+    return updated;
+  });
+
+  app.delete("/knowledge/:id/sources/:sourceId", BEARER, async (req) => {
+    const actor = req.actor;
+    if (!actor) throw new UnauthorizedError("missing credentials");
+    const ctx = context(req);
+    const { id, sourceId } = req.params as { id: string; sourceId: string };
+    parseOrThrow(knowledgeIdSchema, id, "knowledge id is malformed");
+    parseOrThrow(sourceIdSchema, sourceId, "sourceId is malformed");
+
+    const item = await store().findById(ctx.organizationId, id);
+    if (!item) throw new KnowledgeNotFoundError();
+
+    const current = item.sourceIds ?? [];
+    if (!current.includes(sourceId)) throw new SourceNotFoundError();
+
+    const updated = await store().setSourceIds(
+      ctx.organizationId,
+      id,
+      current.filter((s) => s !== sourceId),
+    );
+    if (!updated) throw new KnowledgeNotFoundError();
+
+    await vStore().append({
+      organizationId: ctx.organizationId,
+      knowledgeId: updated.id,
+      version: updated.version,
+      snapshot: updated,
+      changedBy: actor.actorId,
+      changeSummary: `detached source ${sourceId}`,
+    });
     return updated;
   });
 

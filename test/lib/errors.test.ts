@@ -6,6 +6,7 @@ import {
   InvalidStatusTransitionError,
   KnowledgeNotFoundError,
   NotFoundError,
+  RelationNotFoundError,
   ValidationError,
 } from "../../src/lib/errors.js";
 import { InvalidTenantScopeError, TenantNotFoundError, UnauthorizedError, ForbiddenScopeError } from "../../src/lib/errors.js";
@@ -96,5 +97,13 @@ describe("FactNotFoundError", () => {
     const err = new FactNotFoundError();
     expect(err.statusCode).toBe(404);
     expect(err.code).toBe("FACT_NOT_FOUND");
+  });
+});
+
+describe("RelationNotFoundError", () => {
+  it("is a 404 with RELATION_NOT_FOUND code", () => {
+    const err = new RelationNotFoundError();
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe("RELATION_NOT_FOUND");
   });
 });

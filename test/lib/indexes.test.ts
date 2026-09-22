@@ -13,6 +13,7 @@ const EXPECTED_COLLECTIONS = [
   "audit_events",
   "knowledge_gaps",
   "fact_versions",
+  "relation_versions",
 ];
 
 describe("CORE_INDEXES", () => {
@@ -153,5 +154,22 @@ describe("facts and fact_versions indexes", () => {
     expect(fv!.indexes.find((i) => i.name === "fact_lookup")!.key).toEqual({
       organizationId: 1, factId: 1,
     });
+  });
+});
+
+describe("relation indexes", () => {
+  it("declares relations with a unique id index and predicate/status lookups", () => {
+    const relations = CORE_INDEXES.find((c) => c.collection === "relations");
+    const names = relations?.indexes.map((i) => i.name) ?? [];
+    expect(names).toContain("id_unique");
+    expect(names).toContain("project_predicate");
+    expect(names).toContain("project_status");
+  });
+
+  it("declares relation_versions with id and relation lookup indexes", () => {
+    const versions = CORE_INDEXES.find((c) => c.collection === "relation_versions");
+    const names = versions?.indexes.map((i) => i.name) ?? [];
+    expect(names).toContain("id_unique");
+    expect(names).toContain("relation_lookup");
   });
 });

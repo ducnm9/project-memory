@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Db } from "mongodb";
 import { CORE_INDEXES, ROOT_INDEXES, ensureIndexes } from "../../src/lib/indexes.js";
+import { SourceNotFoundError } from "../../src/lib/errors.js";
 
 const EXPECTED_COLLECTIONS = [
   "knowledge_items",
@@ -104,5 +105,24 @@ describe("knowledge_items indexes", () => {
     expect(entry!.indexes.find((i) => i.name === "project_status")!.key).toEqual({
       organizationId: 1, projectId: 1, status: 1,
     });
+  });
+});
+
+describe("sources indexes and error", () => {
+  it("declares id_unique and project_type on the sources collection", () => {
+    const sources = CORE_INDEXES.find((c) => c.collection === "sources");
+    expect(sources).toBeDefined();
+    const names = sources!.indexes.map((i) => i.name);
+    expect(names).toContain("org_project"); // shared tenancy index
+    expect(names).toContain("id_unique");
+    expect(names).toContain("project_type");
+    const idUnique = sources!.indexes.find((i) => i.name === "id_unique");
+    expect(idUnique?.unique).toBe(true);
+  });
+
+  it("SourceNotFoundError is a 404 with code SOURCE_NOT_FOUND", () => {
+    const err = new SourceNotFoundError();
+    expect(err.statusCode).toBe(404);
+    expect(err.code).toBe("SOURCE_NOT_FOUND");
   });
 });

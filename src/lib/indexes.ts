@@ -37,6 +37,10 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { organizationId: 1, projectId: 1, type: 1 }, name: "project_type" },
     { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
   ],
+  sources: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, type: 1 }, name: "project_type" },
+  ],
 };
 
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(

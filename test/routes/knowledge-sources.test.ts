@@ -117,6 +117,37 @@ describe("POST /knowledge/:id/sources", () => {
     expect(res.statusCode).toBe(404);
     await app.close();
   });
+
+  it("attaches to a pre-PM-013 item that has no sourceIds field", async () => {
+    const rows = seeded();
+    // Simulate a legacy item written before the sourceIds field existed.
+    (rows.knowledge_items as unknown[]).push({
+      id: "know_00000000000000000000000000",
+      organizationId: orgId,
+      projectId,
+      type: "Fact",
+      title: "legacy",
+      summary: "s",
+      content: {},
+      status: "DISCOVERED",
+      version: 1,
+      ownerId: "tok_1",
+      createdAt: "",
+      updatedAt: "",
+      lastVerifiedAt: null,
+      // no sourceIds
+    });
+    const app = buildApp(rows);
+    const sourceId = await seedSource(app);
+    const res = await app.inject({
+      method: "POST",
+      url: `/knowledge/know_00000000000000000000000000/sources`,
+      payload: { sourceId },
+    });
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as { sourceIds: string[] }).sourceIds).toEqual([sourceId]);
+    await app.close();
+  });
 });
 
 describe("DELETE /knowledge/:id/sources/:sourceId", () => {

@@ -22,6 +22,7 @@ const CORE_COLLECTIONS = [
   "proposals",
   "audit_events",
   "knowledge_gaps",
+  "fact_versions",
 ] as const;
 
 type CoreCollection = (typeof CORE_COLLECTIONS)[number];
@@ -40,6 +41,15 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
   sources: [
     { key: { id: 1 }, name: "id_unique", unique: true },
     { key: { organizationId: 1, projectId: 1, type: 1 }, name: "project_type" },
+  ],
+  facts: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, predicate: 1 }, name: "project_predicate" },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+  ],
+  fact_versions: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, factId: 1 }, name: "fact_lookup" },
   ],
 };
 

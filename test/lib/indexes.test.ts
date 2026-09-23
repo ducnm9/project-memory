@@ -14,6 +14,7 @@ const EXPECTED_COLLECTIONS = [
   "knowledge_gaps",
   "fact_versions",
   "relation_versions",
+  "search_records",
 ];
 
 describe("CORE_INDEXES", () => {

@@ -42,10 +42,26 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           return found ? stripId(found) : null;
         },
         find: (filter: Row) => {
+          let textQuery: string | null = null;
+          const plainFilter: Row = {};
+          for (const [k, v] of Object.entries(filter)) {
+            if (k === "$text" && v && typeof v === "object" && "$search" in (v as object)) {
+              textQuery = String((v as { $search: string }).$search).toLowerCase();
+            } else {
+              plainFilter[k] = v;
+            }
+          }
           let sortKey: string | null = null;
           let sortDir: 1 | -1 = 1;
           function toArray() {
-            let results = list.filter((r) => matches(r, filter)).map(stripId);
+            let results = list
+              .filter((r) => matches(r, plainFilter))
+              .filter((r) => {
+                if (!textQuery) return true;
+                const text = String(r.searchText ?? "").toLowerCase();
+                return text.includes(textQuery);
+              })
+              .map(stripId);
             if (sortKey) {
               const key = sortKey;
               const dir = sortDir;

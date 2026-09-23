@@ -31,6 +31,7 @@ import {
 import { createAuditEventStore } from "../modules/governance/audit-repository.js";
 import type { AuditEventType } from "../modules/governance/audit-entities.js";
 import { createGapStore } from "../modules/knowledge-core/gap-repository.js";
+import { SearchIndexer } from "../modules/retrieval/search-indexer.js";
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -71,6 +72,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   const sourceStore = () => createSourceStore(app.db);
   const auditStore = () => createAuditEventStore(app.db);
   const gapStore = () => createGapStore(app.db);
+  const searchIndexer = () => new SearchIndexer(app.db);
 
   function actorName(actor: { actorId: string; name?: string }): string {
     return actor.name ?? actor.actorId;
@@ -102,6 +104,20 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     const gap = await gapStore().upsertOnQuestion(ctx.organizationId, projectId, rawQuestion);
     return { items: [], gap };
+  });
+
+  // Must be before /knowledge/:id/... to avoid parametric-route capture
+  app.post("/knowledge/search/rebuild", BEARER, async (req) => {
+    const ctx = context(req);
+    const { projectId: qProjectId } = req.query as { projectId?: string };
+    if (!qProjectId) throw new ValidationError("projectId query param required");
+    parseOrThrow(projectIdSchema, qProjectId, "projectId is malformed");
+    const items = await store().findByProject(ctx.organizationId, {
+      projectId: qProjectId,
+      status: "PUBLISHED",
+    });
+    await searchIndexer().rebuild(ctx.organizationId, qProjectId, items);
+    return { rebuilt: items.length };
   });
 
   app.post("/knowledge", BEARER, async (req, reply) => {
@@ -160,6 +176,9 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       actorName: actorName(actor),
       newVersion: item.version,
     });
+    if (item.status === "PUBLISHED") {
+      await searchIndexer().upsert(item);
+    }
     reply.status(201);
     return item;
   });
@@ -246,6 +265,12 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       previousVersion: existing.version,
       newVersion: updated.version,
     });
+
+    if (updated.status === "PUBLISHED") {
+      await searchIndexer().upsert(updated);
+    } else if (updated.status === "DEPRECATED" || updated.status === "REJECTED") {
+      await searchIndexer().remove(ctx.organizationId, updated.id);
+    }
 
     return updated;
   });

@@ -24,6 +24,7 @@ const CORE_COLLECTIONS = [
   "knowledge_gaps",
   "fact_versions",
   "relation_versions",
+  "search_records",
 ] as const;
 
 type CoreCollection = (typeof CORE_COLLECTIONS)[number];
@@ -75,6 +76,12 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { id: 1 }, name: "id_unique", unique: true },
     { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
     { key: { organizationId: 1, projectId: 1, contentHash: 1 }, name: "content_hash_unique", unique: true },
+  ],
+  search_records: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, knowledgeId: 1 }, name: "knowledge_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+    { key: { searchText: "text" }, name: "search_text_index" } as IndexSpec,
   ],
 };
 

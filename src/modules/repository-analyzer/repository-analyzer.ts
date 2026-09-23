@@ -92,3 +92,159 @@ export function detectInfrastructure(files: GitFileEntry[]): string[] {
   if (paths.includes("cdk.json")) infra.add("AWS CDK");
   return [...infra];
 }
+
+// ── Manifest-based detectors ──────────────────────────────────────────────
+
+type Manifests = Record<string, string | null>;
+
+function parsePkgJson(manifests: Manifests): Record<string, string> {
+  const raw = manifests["package.json"];
+  if (!raw) return {};
+  try {
+    const pkg = JSON.parse(raw) as { dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+    return { ...pkg.dependencies, ...pkg.devDependencies };
+  } catch {
+    return {};
+  }
+}
+
+const PKG_FRAMEWORK_MAP: Array<[string, string]> = [
+  ["fastify", "Fastify"], ["express", "Express"], ["react", "React"],
+  ["next", "Next.js"], ["vue", "Vue"], ["@nestjs/core", "NestJS"],
+];
+
+const PYTHON_FRAMEWORK_MAP: Array<[string, string]> = [
+  ["fastapi", "FastAPI"], ["django", "Django"], ["flask", "Flask"],
+  ["sqlalchemy", "SQLAlchemy"],
+];
+
+const GO_FRAMEWORK_MAP: Array<[string, string]> = [
+  ["gin-gonic/gin", "Gin"], ["labstack/echo", "Echo"], ["gofiber/fiber", "Fiber"],
+];
+
+export function detectFrameworks(manifests: Manifests): string[] {
+  const out = new Set<string>();
+  const deps = parsePkgJson(manifests);
+  for (const [key, name] of PKG_FRAMEWORK_MAP) {
+    if (key in deps) out.add(name);
+  }
+  const reqs = manifests["requirements.txt"];
+  if (reqs) {
+    const lower = reqs.toLowerCase();
+    for (const [key, name] of PYTHON_FRAMEWORK_MAP) {
+      if (lower.includes(key)) out.add(name);
+    }
+  }
+  const goMod = manifests["go.mod"];
+  if (goMod) {
+    for (const [key, name] of GO_FRAMEWORK_MAP) {
+      if (goMod.includes(key)) out.add(name);
+    }
+  }
+  const jvmManifest = manifests["pom.xml"] ?? manifests["build.gradle"];
+  if (jvmManifest) {
+    if (jvmManifest.includes("spring-boot")) out.add("Spring Boot");
+    if (jvmManifest.includes("quarkus")) out.add("Quarkus");
+  }
+  return [...out];
+}
+
+const BUILD_PRECEDENCE: Array<[string, string]> = [
+  ["package.json", "npm"], ["pom.xml", "maven"], ["build.gradle", "gradle"],
+  ["Makefile", "make"], ["go.mod", "go"], ["Cargo.toml", "cargo"],
+];
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function detectBuildSystem(files: GitFileEntry[], _: Manifests): string | null {
+  const filePaths = new Set(files.map(f => f.path));
+  for (const [name, system] of BUILD_PRECEDENCE) {
+    if (filePaths.has(name)) return system;
+  }
+  return null;
+}
+
+export function detectTestFrameworks(files: GitFileEntry[], manifests: Manifests): string[] {
+  const out = new Set<string>();
+  const deps = parsePkgJson(manifests);
+  if ("vitest" in deps) out.add("Vitest");
+  if ("jest" in deps) out.add("Jest");
+  if ("mocha" in deps) out.add("Mocha");
+  const filePaths = files.map(f => f.path);
+  if (filePaths.some(p => p === "pytest.ini" || p === "setup.cfg")) out.add("pytest");
+  const pyproject = manifests["pyproject.toml"];
+  if (pyproject?.includes("[tool.pytest")) out.add("pytest");
+  const jvmManifest = manifests["pom.xml"] ?? manifests["build.gradle"];
+  if (jvmManifest?.includes("junit")) out.add("JUnit");
+  return [...out];
+}
+
+const PKG_DB_MAP: Array<[string, string]> = [
+  ["mongodb", "MongoDB"], ["mongoose", "MongoDB"],
+  ["pg", "PostgreSQL"], ["postgres", "PostgreSQL"], ["postgresql", "PostgreSQL"],
+  ["mysql", "MySQL"], ["mysql2", "MySQL"],
+  ["redis", "Redis"], ["ioredis", "Redis"],
+  ["sqlite", "SQLite"], ["better-sqlite3", "SQLite"],
+];
+
+const PYTHON_DB_MAP: Array<[string, string]> = [
+  ["psycopg2", "PostgreSQL"], ["asyncpg", "PostgreSQL"],
+  ["pymongo", "MongoDB"],
+  ["redis", "Redis"],
+  ["mysql-connector", "MySQL"], ["pymysql", "MySQL"],
+];
+
+export function detectDatabases(manifests: Manifests): string[] {
+  const out = new Set<string>();
+  const deps = parsePkgJson(manifests);
+  for (const [key, name] of PKG_DB_MAP) {
+    if (key in deps) out.add(name);
+  }
+  const reqs = manifests["requirements.txt"];
+  if (reqs) {
+    const lower = reqs.toLowerCase();
+    for (const [key, name] of PYTHON_DB_MAP) {
+      if (lower.includes(key)) out.add(name);
+    }
+  }
+  return [...out];
+}
+
+const INTEGRATION_KEYWORDS: Array<[string, string]> = [
+  ["stripe", "stripe"], ["twilio", "twilio"],
+  ["@sendgrid/", "sendgrid"], ["sendgrid", "sendgrid"],
+  ["aws-sdk", "aws-sdk"], ["@aws-sdk/", "aws-sdk"],
+  ["firebase", "firebase"], ["supabase", "supabase"],
+  ["auth0", "auth0"], ["datadog", "datadog"],
+  ["sentry", "sentry"], ["openai", "openai"],
+  ["anthropic", "anthropic"], ["langchain", "langchain"],
+];
+
+export function detectIntegrations(manifests: Manifests): string[] {
+  const out = new Set<string>();
+  const deps = parsePkgJson(manifests);
+  for (const [key, label] of INTEGRATION_KEYWORDS) {
+    if (Object.keys(deps).some(d => d.startsWith(key) || d === key)) out.add(label);
+  }
+  const reqs = manifests["requirements.txt"];
+  if (reqs) {
+    const lower = reqs.toLowerCase();
+    for (const [key, label] of INTEGRATION_KEYWORDS) {
+      if (lower.includes(key.replace("@", "").replace("/", "-"))) out.add(label);
+    }
+  }
+  return [...out];
+}
+
+const MONOREPO_SIGNALS = ["pnpm-workspace.yaml", "lerna.json"];
+const MULTI_ROOT_FILES = ["package.json", "pom.xml", "go.mod"];
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function detectMonorepo(files: GitFileEntry[], _: Manifests): boolean {
+  const filePaths = files.filter(f => f.type === "file").map(f => f.path);
+  if (MONOREPO_SIGNALS.some(s => filePaths.includes(s))) return true;
+  for (const name of MULTI_ROOT_FILES) {
+    const matches = filePaths.filter(p => p === name || p.endsWith(`/${name}`));
+    if (matches.length > 1) return true;
+  }
+  return false;
+}

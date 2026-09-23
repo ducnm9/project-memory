@@ -6,6 +6,12 @@ import {
   detectModules,
   detectCicd,
   detectInfrastructure,
+  detectFrameworks,
+  detectBuildSystem,
+  detectTestFrameworks,
+  detectDatabases,
+  detectIntegrations,
+  detectMonorepo,
 } from "../../../src/modules/repository-analyzer/repository-analyzer.js";
 import type { GitFileEntry } from "../../../src/modules/git-connector/index.js";
 
@@ -185,5 +191,206 @@ describe("detectInfrastructure", () => {
 
   it("returns empty for plain source files", () => {
     expect(detectInfrastructure([f("src/index.ts")])).toEqual([]);
+  });
+});
+
+// ── detectFrameworks ───────────────────────────────────────────────────────
+describe("detectFrameworks", () => {
+  it("detects Fastify from package.json dependencies", () => {
+    const manifests = {
+      "package.json": JSON.stringify({ dependencies: { fastify: "5.0" } }),
+    };
+    expect(detectFrameworks(manifests)).toContain("Fastify");
+  });
+
+  it("detects React from devDependencies", () => {
+    const manifests = {
+      "package.json": JSON.stringify({ devDependencies: { react: "18.0" } }),
+    };
+    expect(detectFrameworks(manifests)).toContain("React");
+  });
+
+  it("detects FastAPI from requirements.txt", () => {
+    const manifests = { "requirements.txt": "fastapi==0.110.0\nuvicorn\n" };
+    expect(detectFrameworks(manifests)).toContain("FastAPI");
+  });
+
+  it("detects SQLAlchemy from requirements.txt", () => {
+    const manifests = { "requirements.txt": "sqlalchemy==2.0.0\n" };
+    expect(detectFrameworks(manifests)).toContain("SQLAlchemy");
+  });
+
+  it("detects Spring Boot from pom.xml", () => {
+    const manifests = { "pom.xml": "<artifactId>spring-boot-starter-web</artifactId>" };
+    expect(detectFrameworks(manifests)).toContain("Spring Boot");
+  });
+
+  it("detects Gin from go.mod", () => {
+    const manifests = { "go.mod": "require github.com/gin-gonic/gin v1.9.0" };
+    expect(detectFrameworks(manifests)).toContain("Gin");
+  });
+
+  it("returns empty for missing manifests", () => {
+    expect(detectFrameworks({})).toEqual([]);
+  });
+
+  it("returns empty for invalid JSON in package.json without throwing", () => {
+    const manifests = { "package.json": "not valid json" };
+    expect(() => detectFrameworks(manifests)).not.toThrow();
+    expect(detectFrameworks(manifests)).toEqual([]);
+  });
+});
+
+// ── detectBuildSystem ──────────────────────────────────────────────────────
+describe("detectBuildSystem", () => {
+  it("returns npm when package.json exists", () => {
+    const files = [f("package.json")];
+    expect(detectBuildSystem(files, { "package.json": "{}" })).toBe("npm");
+  });
+
+  it("returns maven when pom.xml exists", () => {
+    const files = [f("pom.xml")];
+    expect(detectBuildSystem(files, {})).toBe("maven");
+  });
+
+  it("returns gradle when build.gradle exists", () => {
+    const files = [f("build.gradle")];
+    expect(detectBuildSystem(files, {})).toBe("gradle");
+  });
+
+  it("returns make when only Makefile exists", () => {
+    const files = [f("Makefile")];
+    expect(detectBuildSystem(files, {})).toBe("make");
+  });
+
+  it("returns go when only go.mod exists", () => {
+    const files = [f("go.mod")];
+    expect(detectBuildSystem(files, {})).toBe("go");
+  });
+
+  it("returns cargo when only Cargo.toml exists", () => {
+    const files = [f("Cargo.toml")];
+    expect(detectBuildSystem(files, {})).toBe("cargo");
+  });
+
+  it("returns null for empty repo", () => {
+    expect(detectBuildSystem([], {})).toBeNull();
+  });
+
+  it("prefers npm over make when both present", () => {
+    const files = [f("package.json"), f("Makefile")];
+    expect(detectBuildSystem(files, {})).toBe("npm");
+  });
+});
+
+// ── detectTestFrameworks ───────────────────────────────────────────────────
+describe("detectTestFrameworks", () => {
+  it("detects Vitest from devDependencies", () => {
+    const manifests = { "package.json": JSON.stringify({ devDependencies: { vitest: "2.0" } }) };
+    expect(detectTestFrameworks([], manifests)).toContain("Vitest");
+  });
+
+  it("detects Jest from devDependencies", () => {
+    const manifests = { "package.json": JSON.stringify({ devDependencies: { jest: "29.0" } }) };
+    expect(detectTestFrameworks([], manifests)).toContain("Jest");
+  });
+
+  it("detects pytest from pytest.ini file", () => {
+    expect(detectTestFrameworks([f("pytest.ini")], {})).toContain("pytest");
+  });
+
+  it("detects JUnit from pom.xml content", () => {
+    const manifests = { "pom.xml": "<artifactId>junit-jupiter</artifactId>" };
+    expect(detectTestFrameworks([], manifests)).toContain("JUnit");
+  });
+
+  it("returns empty for no test signals", () => {
+    expect(detectTestFrameworks([], {})).toEqual([]);
+  });
+});
+
+// ── detectDatabases ────────────────────────────────────────────────────────
+describe("detectDatabases", () => {
+  it("detects MongoDB from package.json", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { mongodb: "7.0" } }) };
+    expect(detectDatabases(manifests)).toContain("MongoDB");
+  });
+
+  it("detects PostgreSQL from pg package", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { pg: "8.0" } }) };
+    expect(detectDatabases(manifests)).toContain("PostgreSQL");
+  });
+
+  it("detects Redis from ioredis package", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { ioredis: "5.0" } }) };
+    expect(detectDatabases(manifests)).toContain("Redis");
+  });
+
+  it("detects PostgreSQL from requirements.txt", () => {
+    const manifests = { "requirements.txt": "psycopg2==2.9.0\n" };
+    expect(detectDatabases(manifests)).toContain("PostgreSQL");
+  });
+
+  it("returns empty for no database signals", () => {
+    expect(detectDatabases({})).toEqual([]);
+  });
+});
+
+// ── detectIntegrations ─────────────────────────────────────────────────────
+describe("detectIntegrations", () => {
+  it("detects stripe", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { stripe: "14.0" } }) };
+    expect(detectIntegrations(manifests)).toContain("stripe");
+  });
+
+  it("detects @aws-sdk/ scoped packages", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { "@aws-sdk/client-s3": "3.0" } }) };
+    expect(detectIntegrations(manifests)).toContain("aws-sdk");
+  });
+
+  it("detects openai", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { openai: "4.0" } }) };
+    expect(detectIntegrations(manifests)).toContain("openai");
+  });
+
+  it("detects sentry from requirements.txt", () => {
+    const manifests = { "requirements.txt": "sentry-sdk==1.0.0\n" };
+    expect(detectIntegrations(manifests)).toContain("sentry");
+  });
+
+  it("returns empty for no known integration signals", () => {
+    expect(detectIntegrations({})).toEqual([]);
+  });
+});
+
+// ── detectMonorepo ─────────────────────────────────────────────────────────
+describe("detectMonorepo", () => {
+  it("returns true for multiple package.json in different dirs", () => {
+    const files = [
+      f("package.json"), f("packages/app/package.json"), f("packages/lib/package.json"),
+    ];
+    expect(detectMonorepo(files, {})).toBe(true);
+  });
+
+  it("returns true when pnpm-workspace.yaml exists", () => {
+    expect(detectMonorepo([f("pnpm-workspace.yaml")], {})).toBe(true);
+  });
+
+  it("returns true when lerna.json exists", () => {
+    expect(detectMonorepo([f("lerna.json")], {})).toBe(true);
+  });
+
+  it("returns true for multiple go.mod files", () => {
+    const files = [f("go.mod"), f("internal/service/go.mod")];
+    expect(detectMonorepo(files, {})).toBe(true);
+  });
+
+  it("returns false for single package.json", () => {
+    const files = [f("package.json"), f("src/index.ts")];
+    expect(detectMonorepo(files, {})).toBe(false);
+  });
+
+  it("returns false for empty repo", () => {
+    expect(detectMonorepo([], {})).toBe(false);
   });
 });

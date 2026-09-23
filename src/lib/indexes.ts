@@ -71,6 +71,11 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { organizationId: 1, projectId: 1, question: 1 }, name: "project_question_unique", unique: true },
     { key: { organizationId: 1, projectId: 1, status: 1, occurrenceCount: -1 }, name: "project_status_occurrence" },
   ],
+  proposals: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+    { key: { organizationId: 1, projectId: 1, contentHash: 1 }, name: "content_hash_unique", unique: true },
+  ],
 };
 
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(

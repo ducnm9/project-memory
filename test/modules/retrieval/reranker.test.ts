@@ -87,6 +87,8 @@ describe('Reranker (Cohere API key present)', () => {
 
     const candidates = [makeCandidate()];
     const reranker = new Reranker('co-test-key');
-    await expect(reranker.rerank('q', candidates)).resolves.toHaveLength(1);
+    const results = await reranker.rerank('q', candidates);
+    expect(results).toHaveLength(1);
+    expect(results[0].rerankerScore).toBeNull();
   });
 });

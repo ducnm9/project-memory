@@ -47,8 +47,11 @@ export class Reranker {
       const body = (await resp.json()) as { results: { index: number; relevance_score: number }[] };
       console.info({ candidateCount: top.length, durationMs: Date.now() - start }, 'cohere rerank ok');
 
+      // ponytail: assumes Cohere returns exactly top.length results with valid indices;
+      // filter guards against out-of-bounds index on partial results
       const reranked = body.results
         .sort((a, b) => b.relevance_score - a.relevance_score)
+        .filter((r) => top[r.index] !== undefined)
         .map((r) => ({ ...top[r.index], rerankerScore: r.relevance_score }));
 
       return [...reranked, ...rest];

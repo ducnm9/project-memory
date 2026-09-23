@@ -6,7 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LLMAssistant } from "../modules/repository-analyzer/entities.js";
 import type { AppConfig } from "../config/index.js";
 
-export function createLLMModel(config: AppConfig): LanguageModel | null {
+export function createLLMModel(config: Pick<AppConfig, "llm">): LanguageModel | null {
   if (!config.llm) return null;
   const { provider, model, apiKey } = config.llm;
   if (provider === "openai") {
@@ -19,7 +19,7 @@ export function createLLMModel(config: AppConfig): LanguageModel | null {
   return createGoogleGenerativeAI({ apiKey })(model);
 }
 
-export function createLLMAssistant(config: AppConfig): LLMAssistant | null {
+export function createLLMAssistant(config: Pick<AppConfig, "llm">): LLMAssistant | null {
   const llmModel = createLLMModel(config);
   if (!llmModel) return null;
   return {

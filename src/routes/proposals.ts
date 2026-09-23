@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { createProposalStore } from "../modules/ingestion/proposal-repository.js";
 import { createKnowledgeItemStore } from "../modules/knowledge-core/repository.js";
 import { createKnowledgeVersionStore } from "../modules/knowledge-core/version-repository.js";
+import { orgIdSchema, projectIdSchema } from "../modules/project-context/entities.js";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "../modules/ingestion/entities.js";
 import { z } from "zod";
 import {
@@ -11,7 +12,14 @@ import {
   ValidationError,
 } from "../lib/errors.js";
 
+const proposalIdSchema = z.string().regex(/^prop_[0-9A-HJKMNP-TV-Z]{26}$/);
 const proposalStatusSchema = z.enum(PROPOSAL_STATUSES);
+
+function parseOrThrow<T>(schema: { safeParse(v: unknown): { success: boolean; data?: T } }, value: unknown, message: string): T {
+  const r = schema.safeParse(value);
+  if (!r.success) throw new ValidationError(message);
+  return r.data as T;
+}
 
 export function registerProposalRoutes(app: FastifyInstance): void {
   const BEARER = { config: { auth: "bearer" as const } };
@@ -21,6 +29,9 @@ export function registerProposalRoutes(app: FastifyInstance): void {
     BEARER,
     async (req) => {
       const { orgId, projectId } = req.params as { orgId: string; projectId: string };
+      parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
+      parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+
       const { status } = req.query as { status?: string };
 
       let statusFilter: ProposalStatus | undefined;
@@ -49,6 +60,10 @@ export function registerProposalRoutes(app: FastifyInstance): void {
         projectId: string;
         id: string;
       };
+      parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
+      parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+      parseOrThrow(proposalIdSchema, id, "proposal id is malformed");
+
       const store = createProposalStore(app.db);
       const proposal = await store.findById(orgId, id);
       if (!proposal || proposal.projectId !== projectId) throw new NotFoundError("proposal not found");
@@ -68,6 +83,9 @@ export function registerProposalRoutes(app: FastifyInstance): void {
         projectId: string;
         id: string;
       };
+      parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
+      parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+      parseOrThrow(proposalIdSchema, id, "proposal id is malformed");
 
       const proposalStore = createProposalStore(app.db);
       const proposal = await proposalStore.findById(orgId, id);
@@ -118,6 +136,9 @@ export function registerProposalRoutes(app: FastifyInstance): void {
         projectId: string;
         id: string;
       };
+      parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
+      parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+      parseOrThrow(proposalIdSchema, id, "proposal id is malformed");
 
       const store = createProposalStore(app.db);
       const proposal = await store.findById(orgId, id);

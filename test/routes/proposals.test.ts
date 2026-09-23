@@ -2,11 +2,11 @@ import Fastify, { type FastifyInstance } from "fastify";
 import { describe, it, expect } from "vitest";
 import { registerProposalRoutes } from "../../src/routes/proposals.js";
 import { registerErrorHandler } from "../../src/plugins/error-handler.js";
-import { newProjectId } from "../../src/modules/project-context/entities.js";
+import { newOrgId, newProjectId } from "../../src/modules/project-context/entities.js";
 import { newProposalId } from "../../src/modules/ingestion/entities.js";
 import { createFakeDb, type Collections } from "../support/fake-db.js";
 
-const orgId = "org_1";
+const orgId = newOrgId();
 const projectId = newProjectId();
 
 function buildApp(rows: Collections): FastifyInstance {

@@ -155,3 +155,39 @@ describe('POST /knowledge/embeddings/rebuild', () => {
     expect(body.queued).toBe(1);
   });
 });
+
+describe('GET /search', () => {
+  beforeEach(() => {
+    mockEmbed.mockReset();
+    mockEmbed.mockResolvedValue({ embedding: [0.1, 0.2, 0.3] });
+  });
+
+  it('returns results and query/total shape', async () => {
+    const app = await buildTestApp({
+      knowledge_items: [],
+      search_records: [],
+    });
+
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/search?q=auth&projectId=${PROJECT_ID}`,
+      headers: { 'x-organization-id': ORG_ID, authorization: 'Bearer tok_1' },
+    });
+
+    expect(resp.statusCode).toBe(200);
+    const body = JSON.parse(resp.body);
+    expect(body).toHaveProperty('results');
+    expect(body).toHaveProperty('query', 'auth');
+    expect(body).toHaveProperty('total');
+  });
+
+  it('returns 400 when q is missing', async () => {
+    const app = await buildTestApp();
+    const resp = await app.inject({
+      method: 'GET',
+      url: `/search?projectId=${PROJECT_ID}`,
+      headers: { 'x-organization-id': ORG_ID, authorization: 'Bearer tok_1' },
+    });
+    expect(resp.statusCode).toBe(400);
+  });
+});

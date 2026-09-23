@@ -328,6 +328,8 @@ export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig)
 
     if (updated.status === "PUBLISHED" || updated.status === "STALE") {
       await searchIndexer().upsert(updated);
+      // ponytail: fire-and-forget embed; replace with a job queue (Bull/BeeQueue)
+      // when publish latency or retry reliability becomes a concern
       embeddingPipeline()?.embedItem(ctx.organizationId, updated.id).catch((err) =>
         app.log.error({ err, itemId: updated.id }, "embed failed on update"),
       );

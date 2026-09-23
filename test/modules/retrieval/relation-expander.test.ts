@@ -136,4 +136,23 @@ describe('RelationExpander', () => {
     const results = await expander.expand([makeDirectResult(a)], 'org_1', 'proj_1');
     expect(results.find(r => r.knowledgeId === b)).toBeUndefined();
   });
+
+  it('expands 2 hops when depth=2 (default)', async () => {
+    const a = newKnowledgeItemId();
+    const b = newKnowledgeItemId();
+    const c = newKnowledgeItemId();
+
+    const { db } = createFakeDb({
+      knowledge_items: [makeItem(a), makeItem(b), makeItem(c)] as never[],
+      relations: [makeRelation(a, b), makeRelation(b, c)] as never[],
+    });
+
+    const expander = new RelationExpander(db);
+    const results = await expander.expand([makeDirectResult(a)], 'org_1', 'proj_1');
+
+    expect(results.find(r => r.knowledgeId === b)).toBeDefined();
+    expect(results.find(r => r.knowledgeId === c)).toBeDefined();
+    const cItem = results.find(r => r.knowledgeId === c) as { hopDepth?: number };
+    expect(cItem.hopDepth).toBe(2);
+  });
 });

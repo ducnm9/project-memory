@@ -12,7 +12,9 @@ import {
   detectDatabases,
   detectIntegrations,
   detectMonorepo,
+  RepositoryAnalyzer,
 } from "../../../src/modules/repository-analyzer/repository-analyzer.js";
+import type { RepositoryInput, LLMAssistant } from "../../../src/modules/repository-analyzer/entities.js";
 import type { GitFileEntry } from "../../../src/modules/git-connector/index.js";
 
 const f = (path: string, type: "file" | "directory" = "file"): GitFileEntry => ({
@@ -392,5 +394,143 @@ describe("detectMonorepo", () => {
 
   it("returns false for empty repo", () => {
     expect(detectMonorepo([], {})).toBe(false);
+  });
+});
+
+function makeInput(
+  files: GitFileEntry[],
+  fileContents: Record<string, string> = {}
+): RepositoryInput {
+  return {
+    files,
+    readFile: async (p) => fileContents[p] ?? null,
+  };
+}
+
+// ── RepositoryAnalyzer ─────────────────────────────────────────────────────
+describe("RepositoryAnalyzer", () => {
+  describe("Node/TypeScript repo (acceptance criteria)", () => {
+    it("correctly identifies language, framework, test system, and CI", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput(
+        [
+          f("package.json"),
+          f("src/index.ts"),
+          f("src/server.ts"),
+          f("vitest.config.ts"),
+          f(".github/workflows/ci.yml"),
+          f("src", "directory"),
+        ],
+        {
+          "package.json": JSON.stringify({
+            dependencies: { fastify: "5.0" },
+            devDependencies: { vitest: "2.0", typescript: "5.0" },
+          }),
+        }
+      );
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.languages).toContain("TypeScript");
+      expect(snapshot.frameworks).toContain("Fastify");
+      expect(snapshot.testFrameworks).toContain("Vitest");
+      expect(snapshot.buildSystem).toBe("npm");
+      expect(snapshot.cicd).toBe("GitHub Actions");
+      expect(snapshot.analyzedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+  });
+
+  describe("Python/FastAPI repo (acceptance criteria)", () => {
+    it("correctly identifies language, framework, test system, and infra", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput(
+        [
+          f("requirements.txt"),
+          f("app/main.py"),
+          f("pytest.ini"),
+          f("Dockerfile"),
+        ],
+        { "requirements.txt": "fastapi==0.110.0\nuvicorn==0.27.0\nsqlalchemy==2.0.0\n" }
+      );
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.languages).toContain("Python");
+      expect(snapshot.frameworks).toContain("FastAPI");
+      expect(snapshot.frameworks).toContain("SQLAlchemy");
+      expect(snapshot.testFrameworks).toContain("pytest");
+      expect(snapshot.infrastructure).toContain("Docker");
+    });
+  });
+
+  describe("Java/Maven repo (acceptance criteria)", () => {
+    it("correctly identifies language, framework, test system", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput(
+        [
+          f("pom.xml"),
+          f("src/main/java/com/example/App.java"),
+          f("src/test/java/com/example/AppTest.java"),
+        ],
+        { "pom.xml": "<project><artifactId>spring-boot-starter-web</artifactId><artifactId>junit-jupiter</artifactId></project>" }
+      );
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.languages).toContain("Java");
+      expect(snapshot.frameworks).toContain("Spring Boot");
+      expect(snapshot.testFrameworks).toContain("JUnit");
+      expect(snapshot.buildSystem).toBe("maven");
+    });
+  });
+
+  describe("edge cases", () => {
+    it("returns empty snapshot for empty repo without throwing", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const snapshot = await analyzer.analyze(makeInput([]));
+      expect(snapshot.languages).toEqual([]);
+      expect(snapshot.frameworks).toEqual([]);
+      expect(snapshot.buildSystem).toBeNull();
+      expect(snapshot.isMonorepo).toBe(false);
+    });
+
+    it("handles readFile always returning null without throwing", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput([f("package.json")]);
+      await expect(analyzer.analyze(input)).resolves.toBeDefined();
+    });
+
+    it("detects monorepo with two package.json files", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput([
+        f("package.json"),
+        f("packages/app/package.json"),
+        f("packages/lib/package.json"),
+      ]);
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.isMonorepo).toBe(true);
+    });
+
+    it("calls LLM for module responsibility when injected", async () => {
+      const mockLlm: LLMAssistant = {
+        inferModuleResponsibility: async (name) => `Handles ${name} logic`,
+      };
+      const analyzer = new RepositoryAnalyzer(mockLlm);
+      const input = makeInput([
+        f("src", "directory"),
+        f("src/auth", "directory"),
+        f("src/auth/index.ts"),
+      ]);
+      const snapshot = await analyzer.analyze(input);
+      const authModule = snapshot.modules.find(m => m.name === "auth");
+      expect(authModule?.responsibility).toBe("Handles auth logic");
+    });
+
+    it("does not fail when LLM throws", async () => {
+      const faultyLlm: LLMAssistant = {
+        inferModuleResponsibility: async () => { throw new Error("LLM unavailable"); },
+      };
+      const analyzer = new RepositoryAnalyzer(faultyLlm);
+      const input = makeInput([
+        f("src", "directory"),
+        f("src/auth", "directory"),
+      ]);
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.modules[0].responsibility).toBeUndefined();
+    });
   });
 });

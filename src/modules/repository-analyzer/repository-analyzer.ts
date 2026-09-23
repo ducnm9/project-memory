@@ -1,5 +1,6 @@
 import { extname } from "node:path";
 import type { GitFileEntry } from "../git-connector/index.js";
+import type { LLMAssistant, ProjectModule, ProjectSnapshot, RepositoryInput } from "./entities.js";
 // ── Language detection ────────────────────────────────────────────────────
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -247,4 +248,63 @@ export function detectMonorepo(files: GitFileEntry[], _: Manifests): boolean {
     if (matches.length > 1) return true;
   }
   return false;
+}
+
+// ── RepositoryAnalyzer ────────────────────────────────────────────────────
+
+const MANIFEST_PATHS = [
+  "package.json", "requirements.txt", "go.mod", "pom.xml",
+  "build.gradle", "Cargo.toml", "pyproject.toml",
+];
+
+export class RepositoryAnalyzer {
+  constructor(private readonly llm: LLMAssistant | null = null) {}
+
+  async analyze(input: RepositoryInput): Promise<ProjectSnapshot> {
+    // Read all manifests in parallel; null on any failure
+    const manifests: Record<string, string | null> = {};
+    await Promise.all(
+      MANIFEST_PATHS.map(async (p) => {
+        manifests[p] = await input.readFile(p).catch(() => null);
+      })
+    );
+
+    const rawModules = detectModules(input.files);
+    const modules = await this.resolveModules(rawModules, input.files);
+
+    return {
+      analyzedAt: new Date().toISOString(),
+      languages: detectLanguages(input.files),
+      frameworks: detectFrameworks(manifests),
+      buildSystem: detectBuildSystem(input.files, manifests),
+      testFrameworks: detectTestFrameworks(input.files, manifests),
+      databases: detectDatabases(manifests),
+      apiStyles: detectApiStyles(input.files),
+      entryPoints: detectEntryPoints(input.files),
+      modules,
+      cicd: detectCicd(input.files),
+      infrastructure: detectInfrastructure(input.files),
+      integrations: detectIntegrations(manifests),
+      isMonorepo: detectMonorepo(input.files, manifests),
+    };
+  }
+
+  private async resolveModules(
+    rawModules: Array<{name: string; path: string}>,
+    files: GitFileEntry[]
+  ): Promise<ProjectModule[]> {
+    if (!this.llm) return rawModules;
+    const allPaths = files.filter(f => f.type === "file").map(f => f.path);
+    return Promise.all(
+      rawModules.map(async (m) => {
+        const sampleFiles = allPaths
+          .filter(p => p.startsWith(m.path + "/"))
+          .slice(0, 10);
+        const responsibility = await this.llm!
+          .inferModuleResponsibility(m.name, sampleFiles)
+          .catch(() => null);
+        return { ...m, responsibility: responsibility ?? undefined };
+      })
+    );
+  }
 }

@@ -100,3 +100,9 @@ export class InvalidStatusTransitionError extends AppError {
     super(`invalid status transition: ${from} -> ${to}`, 422, "INVALID_STATUS_TRANSITION");
   }
 }
+
+export class GapNotFoundError extends AppError {
+  constructor(message = "knowledge gap not found") {
+    super(message, 404, "GAP_NOT_FOUND");
+  }
+}

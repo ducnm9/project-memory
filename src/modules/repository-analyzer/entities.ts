@@ -18,6 +18,12 @@ export interface ProjectModule {
   responsibility?: string;
 }
 
+export interface ModuleDependency {
+  from: string;   // module path prefix
+  to: string;     // module path prefix
+  type: "import" | "require" | "include";
+}
+
 export interface ProjectSnapshot {
   analyzedAt: string;          // ISO 8601
   languages: string[];         // e.g. ["TypeScript", "Python"]
@@ -28,6 +34,7 @@ export interface ProjectSnapshot {
   apiStyles: string[];         // e.g. ["REST", "GraphQL", "gRPC"]
   entryPoints: string[];       // e.g. ["src/index.ts"]
   modules: ProjectModule[];
+  dependencies: ModuleDependency[];
   cicd: string | null;         // e.g. "GitHub Actions" | null
   infrastructure: string[];    // e.g. ["Docker", "Terraform"]
   integrations: string[];      // e.g. ["stripe", "aws-sdk"]

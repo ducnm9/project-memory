@@ -1,6 +1,7 @@
 import { extname } from "node:path";
 import type { GitFileEntry } from "../git-connector/index.js";
 import type { LLMAssistant, ProjectModule, ProjectSnapshot, RepositoryInput } from "./entities.js";
+import { ArchitectureExtractor } from "../ingestion/architecture-extractor.js";
 // ── Language detection ────────────────────────────────────────────────────
 
 const EXT_TO_LANG: Record<string, string> = {
@@ -271,6 +272,7 @@ export class RepositoryAnalyzer {
 
     const rawModules = detectModules(input.files);
     const modules = await this.resolveModules(rawModules, input.files);
+    const dependencies = await new ArchitectureExtractor().extract(input.files, modules, input.readFile);
 
     return {
       analyzedAt: new Date().toISOString(),
@@ -287,6 +289,7 @@ export class RepositoryAnalyzer {
       })(),
       entryPoints: detectEntryPoints(input.files),
       modules,
+      dependencies,
       cicd: detectCicd(input.files),
       infrastructure: detectInfrastructure(input.files),
       integrations: detectIntegrations(manifests),

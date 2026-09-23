@@ -18,7 +18,7 @@ function fakeVectorSearch(results: VectorSearchResult[]) {
 }
 
 function makeVec(knowledgeId: string, score = 0.9): VectorSearchResult {
-  return { knowledgeId, score, type: 'Architecture', title: 'T', summary: 'S' };
+  return { knowledgeId, score, type: 'Architecture', title: 'T', summary: 'S', status: 'PUBLISHED' };
 }
 
 function makeText(knowledgeId: string): Partial<SearchRecord> {

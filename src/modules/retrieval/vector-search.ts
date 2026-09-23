@@ -13,6 +13,7 @@ export interface VectorSearchResult {
   type: string;
   title: string;
   summary: string;
+  status: string;
 }
 
 export class VectorSearchService {
@@ -69,6 +70,7 @@ export class VectorSearchService {
         type: item.type,
         title: item.title,
         summary: item.summary,
+        status: item.status,
       }))
       .sort((a, b) => b.score - a.score)
       .slice(0, k);

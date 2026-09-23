@@ -69,7 +69,7 @@ export class HybridRetriever {
 
     // RRF from vector results
     vecResults.forEach((r: VectorSearchResult, rank: number) => {
-      const entry = getOrCreate(r.knowledgeId, r.title, r.type, r.summary, false);
+      const entry = getOrCreate(r.knowledgeId, r.title, r.type, r.summary, r.status === 'STALE');
       entry.rrfScore += 1 / (RRF_K + rank + 1);
       entry.signals.add('vector');
     });

@@ -123,6 +123,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig)
     const { projectId: qProjectId } = req.query as { projectId?: string };
     if (!qProjectId) throw new ValidationError("projectId query param required");
     parseOrThrow(projectIdSchema, qProjectId, "projectId is malformed");
+    await requireProject(ctx.organizationId, qProjectId);
 
     const pipeline = embeddingPipeline();
     if (!pipeline) return { queued: 0, reason: "embedding not configured" };

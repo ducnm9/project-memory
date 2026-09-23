@@ -155,4 +155,17 @@ describe('RelationExpander', () => {
     const cItem = results.find(r => r.knowledgeId === c) as { hopDepth?: number };
     expect(cItem.hopDepth).toBe(2);
   });
+
+  it('returns direct results when DB throws', async () => {
+    const a = newKnowledgeItemId();
+    // Create a db that throws on collection access
+    const badDb = {
+      collection: () => { throw new Error('DB error'); }
+    } as unknown as import('mongodb').Db;
+
+    const expander = new RelationExpander(badDb);
+    const direct = [makeDirectResult(a)];
+    const results = await expander.expand(direct, 'org_1', 'proj_1');
+    expect(results).toEqual(direct);
+  });
 });

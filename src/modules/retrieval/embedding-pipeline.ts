@@ -72,6 +72,7 @@ export class EmbeddingPipeline {
 
 function buildEmbedText(item: KnowledgeItem): string {
   const parts = [item.title, item.summary];
+  // ponytail: non-string content values dropped; use JSON.stringify(item.content) if structured data carries signal
   for (const v of Object.values(item.content)) {
     if (typeof v === 'string') parts.push(v);
   }

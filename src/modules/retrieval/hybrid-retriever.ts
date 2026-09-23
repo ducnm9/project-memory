@@ -31,6 +31,8 @@ export class HybridRetriever {
   ) {}
 
   async search(opts: SearchOptions): Promise<HybridSearchResult[]> {
+    // ponytail: includes STALE so freshness penalty applies; spec default is ['PUBLISHED'] only —
+    // change back if caller should pre-filter stale items
     const { orgId, query, projectId, typeFilter, statusFilter = ['PUBLISHED', 'STALE'], limit = 20 } = opts;
 
     // Run in parallel
@@ -78,7 +80,7 @@ export class HybridRetriever {
     const queryLower = query.toLowerCase();
     for (const [, entry] of scores) {
       if (entry.title.toLowerCase() === queryLower) {
-        entry.rrfScore += 1 / (RRF_K + 1); // extra RRF contribution at rank 0
+        entry.rrfScore += 1; // spec: exact title match adds 1.0 to RRF score
         entry.signals.add('exact');
       }
     }

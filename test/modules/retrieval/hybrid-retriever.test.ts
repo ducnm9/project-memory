@@ -50,8 +50,12 @@ describe('HybridRetriever', () => {
     const other = newKnowledgeItemId();
 
     const retriever = new HybridRetriever(
-      fakeSearchIndexer([makeText(other), { ...makeText(exact), title: 'auth flow' }]),
-      fakeVectorSearch([makeVec(other, 0.99), makeVec(exact, 0.5)]),
+      fakeSearchIndexer([
+        { ...makeText(other), title: 'unrelated' },
+        { ...makeText(exact), title: 'auth flow' },
+      ]),
+      // other appears in vector with high score; exact does NOT appear in vector
+      fakeVectorSearch([makeVec(other, 0.99)]),
     );
 
     const results = await retriever.search({ orgId: 'org_1', query: 'auth flow', projectId: 'proj_1' });

@@ -48,20 +48,22 @@ export function createGitConnector(
         await writeFile(sshKeyPath, plaintext, { mode: 0o600 });
       }
 
-      const git = simpleGit({ baseDir: config.workDir });
+      // Two instances: clone needs baseDir=workDir, fetch needs baseDir=localPath.
+      // Both get SSH env so deploy key auth works on re-connect (fetch) too.
+      const gitClone = simpleGit({ baseDir: config.workDir });
+      const gitFetch = simpleGit(localPath);
       if (sshKeyPath) {
-        git.env(
-          "GIT_SSH_COMMAND",
-          `ssh -i ${sshKeyPath} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`,
-        );
+        const sshCmd = `ssh -i ${sshKeyPath} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
+        gitClone.env("GIT_SSH_COMMAND", sshCmd);
+        gitFetch.env("GIT_SSH_COMMAND", sshCmd);
       }
 
       try {
         if (existsSync(join(localPath, ".git"))) {
-          await simpleGit(localPath).fetch("origin");
+          await gitFetch.fetch("origin");
         } else {
           await mkdir(localPath, { recursive: true });
-          await git.clone(gitUrl, localPath);
+          await gitClone.clone(gitUrl, localPath);
         }
       } catch (err) {
         throw new GitCloneError(`failed to connect to repository ${repositoryId}`, err);

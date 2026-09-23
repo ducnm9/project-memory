@@ -200,6 +200,35 @@ describe("connect() — deploy key auth", () => {
     ).rejects.toThrow(GitCloneError);
     expect(mockRm).toHaveBeenCalledWith("/tmp/pm-git/.ssh/repo_1", { force: true });
   });
+
+  it("sets GIT_SSH_COMMAND on fetch path (existing .git dir)", async () => {
+    mockExistsSync.mockReturnValue(true);
+    const { createCredentialStore } = await import(
+      "../../../src/modules/git-connector/credential-store.js"
+    );
+    const fakeDb = {
+      collection: vi.fn(() => ({
+        replaceOne: vi.fn().mockResolvedValue({}),
+        findOne: vi.fn().mockResolvedValue(null),
+        deleteOne: vi.fn().mockResolvedValue({}),
+      })),
+    } as unknown as Db;
+    const realStore = createCredentialStore(fakeDb, TEST_KEY);
+    const credential = await realStore.upsertCredential("repo_1", "deploy_key", "mykey");
+    const keyCredStore = {
+      ...noCredStore,
+      getCredential: vi.fn().mockResolvedValue(credential),
+    };
+    const connector = makeConnector(keyCredStore);
+    await connector.connect("repo_1", "git@github.com:org/repo.git");
+
+    expect(mockGitInstance.clone).not.toHaveBeenCalled();
+    expect(mockGitInstance.fetch).toHaveBeenCalledWith("origin");
+    expect(mockGitInstance.env).toHaveBeenCalledWith(
+      "GIT_SSH_COMMAND",
+      expect.stringContaining("/tmp/pm-git/.ssh/repo_1"),
+    );
+  });
 });
 
 // ---- listFiles() ----

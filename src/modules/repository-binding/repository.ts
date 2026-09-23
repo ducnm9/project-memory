@@ -16,9 +16,11 @@ export interface CreateRepositoryInput {
 
 export interface RepositoryStore {
   createRepository(input: CreateRepositoryInput): Promise<Repository>;
+  findById(organizationId: string, id: string): Promise<Repository | null>;
   findActiveByUrl(organizationId: string, url: string): Promise<Repository | null>;
   listActiveByProject(organizationId: string, projectId: string): Promise<Repository[]>;
   markUnbound(organizationId: string, projectId: string, id: string): Promise<boolean>;
+  updateSyncState(organizationId: string, id: string, commitSha: string): Promise<void>;
 }
 
 export function createRepositoryStore(db: Db): RepositoryStore {
@@ -38,9 +40,14 @@ export function createRepositoryStore(db: Db): RepositoryStore {
         createdAt: new Date().toISOString(),
         createdBy: input.createdBy,
         unboundAt: null,
+        lastCommitSha: null,
+        lastSyncedAt: null,
       };
       await col().insertOne(repository);
       return repository;
+    },
+    async findById(organizationId, id) {
+      return col().findOne({ id, organizationId, unboundAt: null }, READ_OPTS) as Promise<Repository | null>;
     },
     async findActiveByUrl(organizationId, url) {
       return col().findOne(
@@ -59,6 +66,12 @@ export function createRepositoryStore(db: Db): RepositoryStore {
         { $set: { unboundAt: new Date().toISOString() } },
       );
       return res.matchedCount > 0;
+    },
+    async updateSyncState(organizationId, id, commitSha) {
+      await col().updateOne(
+        { id, organizationId },
+        { $set: { lastCommitSha: commitSha, lastSyncedAt: new Date().toISOString() } },
+      );
     },
   };
 }

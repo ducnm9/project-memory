@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+function defaultModel(provider: string): string {
+  if (provider === "anthropic") return "claude-3-5-haiku-20241022";
+  if (provider === "google") return "gemini-2.0-flash";
+  return "gpt-4o-mini";
+}
+
 export interface AppConfig {
   port: number;
   host: string;
@@ -10,6 +16,11 @@ export interface AppConfig {
   authAdminKey: string;
   authTokenPepper: string;
   credentialEncryptionKey: string;
+  llm: {
+    provider: "openai" | "anthropic" | "google";
+    model: string;
+    apiKey: string;
+  } | null;
 }
 
 const schema = z.object({
@@ -24,6 +35,11 @@ const schema = z.object({
   AUTH_ADMIN_KEY: z.string().default(""),
   AUTH_TOKEN_PEPPER: z.string().default(""),
   CREDENTIAL_ENCRYPTION_KEY: z.string().default("0".repeat(64)),
+  LLM_PROVIDER: z.enum(["openai", "anthropic", "google"]).optional(),
+  LLM_MODEL: z.string().optional(),
+  OPENAI_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppConfig> {
@@ -54,5 +70,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppCo
     authAdminKey: data.AUTH_ADMIN_KEY,
     authTokenPepper: data.AUTH_TOKEN_PEPPER,
     credentialEncryptionKey: data.CREDENTIAL_ENCRYPTION_KEY,
+    llm: (() => {
+      const provider = data.LLM_PROVIDER;
+      const apiKey = provider === "openai" ? data.OPENAI_API_KEY
+        : provider === "anthropic" ? data.ANTHROPIC_API_KEY
+        : provider === "google" ? data.GOOGLE_GENERATIVE_AI_API_KEY
+        : undefined;
+      if (!provider || !apiKey) return null;
+      return { provider, model: data.LLM_MODEL ?? defaultModel(provider), apiKey };
+    })(),
   });
 }

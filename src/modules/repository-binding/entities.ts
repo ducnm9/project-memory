@@ -16,6 +16,8 @@ export interface Repository {
   createdAt: string;
   createdBy: string;
   unboundAt: string | null;
+  lastCommitSha: string | null;
+  lastSyncedAt: string | null;
 }
 
 // Crockford base32 (ULID alphabet): no I, L, O, U.

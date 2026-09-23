@@ -24,6 +24,7 @@ const CORE_COLLECTIONS = [
   "knowledge_gaps",
   "fact_versions",
   "relation_versions",
+  "search_records",
 ] as const;
 
 type CoreCollection = (typeof CORE_COLLECTIONS)[number];
@@ -71,6 +72,17 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { organizationId: 1, projectId: 1, question: 1 }, name: "project_question_unique", unique: true },
     { key: { organizationId: 1, projectId: 1, status: 1, occurrenceCount: -1 }, name: "project_status_occurrence" },
   ],
+  proposals: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+    { key: { organizationId: 1, projectId: 1, contentHash: 1 }, name: "content_hash_unique", unique: true },
+  ],
+  search_records: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, knowledgeId: 1 }, name: "knowledge_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+    { key: { searchText: "text" }, name: "search_text_index" } as IndexSpec,
+  ],
 };
 
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(
@@ -115,6 +127,13 @@ const ROOT_COLLECTION_INDEXES: ReadonlyArray<CollectionIndexes> = [
         partialFilterExpression: { unboundAt: null },
       },
       { key: { organizationId: 1, projectId: 1 }, name: "project_lookup" },
+    ],
+  },
+  {
+    collection: "project_snapshots",
+    indexes: [
+      { key: { id: 1 }, name: "id_unique", unique: true },
+      { key: { organizationId: 1, projectId: 1, archivedAt: 1 }, name: "project_current" },
     ],
   },
 ];

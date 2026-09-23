@@ -42,10 +42,26 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           return found ? stripId(found) : null;
         },
         find: (filter: Row) => {
+          let textQuery: string | null = null;
+          const plainFilter: Row = {};
+          for (const [k, v] of Object.entries(filter)) {
+            if (k === "$text" && v && typeof v === "object" && "$search" in (v as object)) {
+              textQuery = String((v as { $search: string }).$search).toLowerCase();
+            } else {
+              plainFilter[k] = v;
+            }
+          }
           let sortKey: string | null = null;
           let sortDir: 1 | -1 = 1;
           function toArray() {
-            let results = list.filter((r) => matches(r, filter)).map(stripId);
+            let results = list
+              .filter((r) => matches(r, plainFilter))
+              .filter((r) => {
+                if (!textQuery) return true;
+                const text = String(r.searchText ?? "").toLowerCase();
+                return text.includes(textQuery);
+              })
+              .map(stripId);
             if (sortKey) {
               const key = sortKey;
               const dir = sortDir;
@@ -67,9 +83,17 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
             toArray,
           };
         },
-        findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row }) => {
+        findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row; $setOnInsert?: Row }, options?: { upsert?: boolean; returnDocument?: string; projection?: Row }) => {
           const row = list.find((r) => matches(r, filter));
-          if (!row) return null;
+          if (!row) {
+            if (options?.upsert) {
+              const newDoc = { ...update.$setOnInsert, ...update.$set };
+              const stored = { _id: `fake_${list.length}`, ...newDoc };
+              list.push(stored);
+              return options?.returnDocument === "after" ? stripId(stored) : null;
+            }
+            return null;
+          }
           if (update.$set) Object.assign(row, update.$set);
           if (update.$inc) {
             for (const [key, delta] of Object.entries(update.$inc)) {
@@ -83,6 +107,19 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           if (index === -1) return { deletedCount: 0 };
           list.splice(index, 1);
           return { deletedCount: 1 };
+        },
+        updateMany: async (filter: Row, update: { $set?: Row }) => {
+          const matching = list.filter((r) => matches(r, filter));
+          for (const row of matching) {
+            if (update.$set) Object.assign(row, update.$set);
+          }
+          return { matchedCount: matching.length, modifiedCount: matching.length };
+        },
+        updateOne: async (filter: Row, update: { $set?: Row }) => {
+          const row = list.find((r) => matches(r, filter));
+          if (!row) return { matchedCount: 0, modifiedCount: 0 };
+          if (update.$set) Object.assign(row, update.$set);
+          return { matchedCount: 1, modifiedCount: 1 };
         },
       };
     },

@@ -224,7 +224,7 @@ export function detectIntegrations(manifests: Manifests): string[] {
   const out = new Set<string>();
   const deps = parsePkgJson(manifests);
   for (const [key, label] of INTEGRATION_KEYWORDS) {
-    if (Object.keys(deps).some(d => d.startsWith(key) || d === key)) out.add(label);
+    if (Object.keys(deps).some(d => key.startsWith("@") ? d.startsWith(key) : d === key)) out.add(label);
   }
   const reqs = manifests["requirements.txt"];
   if (reqs) {
@@ -279,7 +279,12 @@ export class RepositoryAnalyzer {
       buildSystem: detectBuildSystem(input.files, manifests),
       testFrameworks: detectTestFrameworks(input.files, manifests),
       databases: detectDatabases(manifests),
-      apiStyles: detectApiStyles(input.files),
+      apiStyles: (() => {
+        const styles = new Set(detectApiStyles(input.files));
+        const deps = parsePkgJson(manifests);
+        if ("graphql" in deps || "@apollo/server" in deps || "graphql-yoga" in deps) styles.add("GraphQL");
+        return [...styles];
+      })(),
       entryPoints: detectEntryPoints(input.files),
       modules,
       cicd: detectCicd(input.files),

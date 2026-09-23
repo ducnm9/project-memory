@@ -363,6 +363,11 @@ describe("detectIntegrations", () => {
   it("returns empty for no known integration signals", () => {
     expect(detectIntegrations({})).toEqual([]);
   });
+
+  it("does not match stripe-mock as stripe integration", () => {
+    const manifests = { "package.json": JSON.stringify({ dependencies: { "stripe-mock": "1.0" } }) };
+    expect(detectIntegrations(manifests)).not.toContain("stripe");
+  });
 });
 
 // ── detectMonorepo ─────────────────────────────────────────────────────────
@@ -531,6 +536,16 @@ describe("RepositoryAnalyzer", () => {
       ]);
       const snapshot = await analyzer.analyze(input);
       expect(snapshot.modules[0].responsibility).toBeUndefined();
+    });
+
+    it("detects GraphQL from graphql dep when no .graphql files present", async () => {
+      const analyzer = new RepositoryAnalyzer();
+      const input = makeInput(
+        [f("src/index.ts")],
+        { "package.json": JSON.stringify({ dependencies: { graphql: "16.0", "@apollo/server": "4.0" } }) }
+      );
+      const snapshot = await analyzer.analyze(input);
+      expect(snapshot.apiStyles).toContain("GraphQL");
     });
   });
 });

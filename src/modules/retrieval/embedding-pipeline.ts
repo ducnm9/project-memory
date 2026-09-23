@@ -1,6 +1,6 @@
 import type { Db } from 'mongodb';
 import { embed } from 'ai';
-import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import type { KnowledgeItem } from '../knowledge-core/entities.js';
 import type { AppConfig } from '../../config/index.js';
 
@@ -54,7 +54,7 @@ export class EmbeddingPipeline {
         if (!item) { failed++; continue; }
         try {
           // ponytail: no retry in batch path — one failure = skip; use embedItem for retried single embeds
-          const model = openai.embedding(this.config.model);
+          const model = createOpenAI({ apiKey: this.config.apiKey }).embedding(this.config.model);
           const result = await embed({ model, value: buildEmbedText(item) });
           await col.findOneAndUpdate(
             { id, organizationId: orgId },
@@ -86,7 +86,7 @@ async function embedWithRetry(
   const delays = [100, 400];
   for (let attempt = 0; attempt <= delays.length; attempt++) {
     try {
-      const model = openai.embedding(config.model);
+      const model = createOpenAI({ apiKey: config.apiKey }).embedding(config.model);
       const result = await embed({ model, value: text });
       return result.embedding;
     } catch (err) {

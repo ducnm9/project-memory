@@ -28,11 +28,28 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../lib/errors.js";
+import { createAuditEventStore } from "../modules/governance/audit-repository.js";
+import type { AuditEventType } from "../modules/governance/audit-entities.js";
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
   if (!ctx) throw new InvalidTenantScopeError("x-organization-id is missing or malformed");
   return ctx;
+}
+
+function resolveKnowledgeEventType(
+  patch: Record<string, unknown>,
+  existing: { status: string },
+): AuditEventType {
+  const newStatus = patch.status as string | undefined;
+  if (newStatus && newStatus !== existing.status) {
+    if (newStatus === "ACCEPTED") return "APPROVE";
+    if (newStatus === "REJECTED") return "REJECT";
+    if (newStatus === "DEPRECATED") return "DEPRECATE";
+    if (newStatus === "STALE") return "MARK_STALE";
+  }
+  if ("lastVerifiedAt" in patch) return "VERIFY";
+  return "UPDATE";
 }
 
 function parseOrThrow<T>(
@@ -51,6 +68,11 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   const store = () => createKnowledgeItemStore(app.db);
   const vStore = () => createKnowledgeVersionStore(app.db);
   const sourceStore = () => createSourceStore(app.db);
+  const auditStore = () => createAuditEventStore(app.db);
+
+  function actorName(actor: { actorId: string; name?: string }): string {
+    return actor.name ?? actor.actorId;
+  }
 
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
@@ -102,6 +124,15 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       snapshot: item,
       changedBy: actor.actorId,
       changeSummary: "initial version",
+    });
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "CREATE",
+      targetId: item.id,
+      targetType: "knowledge",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+      newVersion: item.version,
     });
     reply.status(201);
     return item;
@@ -178,7 +209,31 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       changeSummary,
     });
 
+    const auditActor = req.actor ?? { actorId: updated.ownerId };
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: resolveKnowledgeEventType(patch as Record<string, unknown>, existing),
+      targetId: updated.id,
+      targetType: "knowledge",
+      actorId: auditActor.actorId,
+      actorName: actorName(auditActor),
+      previousVersion: existing.version,
+      newVersion: updated.version,
+    });
+
     return updated;
+  });
+
+  app.get("/knowledge/:id/audit", BEARER, async (req) => {
+    const ctx = context(req);
+    const { id } = req.params as { id: string };
+    parseOrThrow(knowledgeIdSchema, id, "knowledge id is malformed");
+
+    const item = await store().findById(ctx.organizationId, id);
+    if (!item) throw new KnowledgeNotFoundError();
+
+    const events = await auditStore().listByTarget(ctx.organizationId, id);
+    return { events };
   });
 
   app.post("/knowledge/:id/sources", BEARER, async (req) => {

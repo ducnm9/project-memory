@@ -22,6 +22,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../lib/errors.js";
+import { createAuditEventStore } from "../modules/governance/audit-repository.js";
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -45,6 +46,11 @@ export function registerRelationRoutes(app: FastifyInstance): void {
   const store = () => createRelationStore(app.db);
   const vStore = () => createRelationVersionStore(app.db);
   const sourceStore = () => createSourceStore(app.db);
+  const auditStore = () => createAuditEventStore(app.db);
+
+  function actorName(actor: { actorId: string; name?: string }): string {
+    return actor.name ?? actor.actorId;
+  }
 
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
@@ -79,6 +85,15 @@ export function registerRelationRoutes(app: FastifyInstance): void {
       snapshot: relation,
       changedBy: actor.actorId,
       changeSummary: "initial version",
+    });
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "RELATION_CREATE",
+      targetId: relation.id,
+      targetType: "relation",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+      newVersion: relation.version,
     });
     reply.status(201);
     return relation;
@@ -162,6 +177,16 @@ export function registerRelationRoutes(app: FastifyInstance): void {
       changedBy: actor.actorId,
       changeSummary,
     });
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "RELATION_UPDATE",
+      targetId: updated.id,
+      targetType: "relation",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+      previousVersion: existing.version,
+      newVersion: updated.version,
+    });
     return updated;
   });
 
@@ -226,13 +251,21 @@ export function registerRelationRoutes(app: FastifyInstance): void {
   });
 
   app.delete("/relations/:id", BEARER, async (req, reply) => {
-    requireActor(req);
+    const actor = requireActor(req);
     const ctx = context(req);
     const { id } = req.params as { id: string };
     assertRelationId(id);
 
     const removed = await store().delete(ctx.organizationId, id);
     if (!removed) throw new RelationNotFoundError();
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "RELATION_DELETE",
+      targetId: id,
+      targetType: "relation",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+    });
     reply.status(204);
     return null;
   });

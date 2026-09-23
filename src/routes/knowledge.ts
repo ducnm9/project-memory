@@ -266,7 +266,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
       newVersion: updated.version,
     });
 
-    if (updated.status === "PUBLISHED") {
+    if (updated.status === "PUBLISHED" || updated.status === "STALE") {
       await searchIndexer().upsert(updated);
     } else if (updated.status === "DEPRECATED" || updated.status === "REJECTED") {
       await searchIndexer().remove(ctx.organizationId, updated.id);

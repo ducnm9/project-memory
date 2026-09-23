@@ -33,6 +33,7 @@ describe("loadConfig", () => {
       LOG_LEVEL: "debug",
       AUTH_ADMIN_KEY: "admin-secret",
       AUTH_TOKEN_PEPPER: "pepper-secret",
+      CREDENTIAL_ENCRYPTION_KEY: "a".repeat(64),
     });
     expect(cfg.port).toBe(8080);
     expect(cfg.nodeEnv).toBe("production");

@@ -9,6 +9,7 @@ export interface AppConfig {
   mongodbDbName: string;
   authAdminKey: string;
   authTokenPepper: string;
+  credentialEncryptionKey: string;
 }
 
 const schema = z.object({
@@ -22,6 +23,7 @@ const schema = z.object({
   MONGODB_DB_NAME: z.string().min(1),
   AUTH_ADMIN_KEY: z.string().default(""),
   AUTH_TOKEN_PEPPER: z.string().default(""),
+  CREDENTIAL_ENCRYPTION_KEY: z.string().default("0".repeat(64)),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppConfig> {
@@ -37,6 +39,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppCo
     const missing: string[] = [];
     if (data.AUTH_ADMIN_KEY.length === 0) missing.push("AUTH_ADMIN_KEY");
     if (data.AUTH_TOKEN_PEPPER.length === 0) missing.push("AUTH_TOKEN_PEPPER");
+    if (data.CREDENTIAL_ENCRYPTION_KEY.length < 64) missing.push("CREDENTIAL_ENCRYPTION_KEY");
     if (missing.length > 0) {
       throw new Error(`Invalid configuration: ${missing.join(", ")} required in production`);
     }
@@ -50,5 +53,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppCo
     mongodbDbName: data.MONGODB_DB_NAME,
     authAdminKey: data.AUTH_ADMIN_KEY,
     authTokenPepper: data.AUTH_TOKEN_PEPPER,
+    credentialEncryptionKey: data.CREDENTIAL_ENCRYPTION_KEY,
   });
 }

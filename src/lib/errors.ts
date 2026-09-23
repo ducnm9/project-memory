@@ -106,3 +106,22 @@ export class GapNotFoundError extends AppError {
     super(message, 404, "GAP_NOT_FOUND");
   }
 }
+
+export class CredentialNotFoundError extends AppError {
+  constructor(message = "connector credential not found") {
+    super(message, 404, "CREDENTIAL_NOT_FOUND");
+  }
+}
+
+export class GitCloneError extends AppError {
+  constructor(message: string, cause?: unknown) {
+    super(message, 502, "GIT_CLONE_FAILED");
+    if (cause !== undefined) this.cause = cause;
+  }
+}
+
+export class FileNotFoundError extends AppError {
+  constructor(message = "file not found in repository") {
+    super(message, 404, "FILE_NOT_FOUND");
+  }
+}

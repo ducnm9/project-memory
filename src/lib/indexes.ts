@@ -61,6 +61,11 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { id: 1 }, name: "id_unique", unique: true },
     { key: { organizationId: 1, relationId: 1 }, name: "relation_lookup" },
   ],
+  audit_events: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, targetId: 1, timestamp: 1 }, name: "target_trail" },
+    { key: { organizationId: 1, actorId: 1 }, name: "actor_lookup" },
+  ],
 };
 
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(

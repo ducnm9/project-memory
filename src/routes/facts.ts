@@ -21,6 +21,7 @@ import {
   UnauthorizedError,
   ValidationError,
 } from "../lib/errors.js";
+import { createAuditEventStore } from "../modules/governance/audit-repository.js";
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -44,6 +45,11 @@ export function registerFactRoutes(app: FastifyInstance): void {
   const store = () => createFactStore(app.db);
   const vStore = () => createFactVersionStore(app.db);
   const sourceStore = () => createSourceStore(app.db);
+  const auditStore = () => createAuditEventStore(app.db);
+
+  function actorName(actor: { actorId: string; name?: string }): string {
+    return actor.name ?? actor.actorId;
+  }
 
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
@@ -78,6 +84,15 @@ export function registerFactRoutes(app: FastifyInstance): void {
       snapshot: fact,
       changedBy: actor.actorId,
       changeSummary: "initial version",
+    });
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "CREATE",
+      targetId: fact.id,
+      targetType: "fact",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+      newVersion: fact.version,
     });
     reply.status(201);
     return fact;
@@ -155,6 +170,16 @@ export function registerFactRoutes(app: FastifyInstance): void {
       snapshot: updated,
       changedBy: actor.actorId,
       changeSummary,
+    });
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "UPDATE",
+      targetId: updated.id,
+      targetType: "fact",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
+      previousVersion: existing.version,
+      newVersion: updated.version,
     });
     return updated;
   });

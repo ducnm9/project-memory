@@ -83,9 +83,17 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
             toArray,
           };
         },
-        findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row }) => {
+        findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row; $setOnInsert?: Row }, options?: { upsert?: boolean; returnDocument?: string; projection?: Row }) => {
           const row = list.find((r) => matches(r, filter));
-          if (!row) return null;
+          if (!row) {
+            if (options?.upsert) {
+              const newDoc = { ...update.$setOnInsert, ...update.$set };
+              const stored = { _id: `fake_${list.length}`, ...newDoc };
+              list.push(stored);
+              return options?.returnDocument === "after" ? stripId(stored) : null;
+            }
+            return null;
+          }
           if (update.$set) Object.assign(row, update.$set);
           if (update.$inc) {
             for (const [key, delta] of Object.entries(update.$inc)) {

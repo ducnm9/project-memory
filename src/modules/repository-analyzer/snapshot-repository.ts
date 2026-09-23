@@ -59,6 +59,7 @@ export function createProjectSnapshotStore(db: Db): ProjectSnapshotStore {
     async findHistory(orgId, projectId) {
       return col()
         .find({ organizationId: orgId, projectId }, READ_OPTS)
+        .sort({ version: -1 })
         .toArray() as Promise<StoredProjectSnapshot[]>;
     },
   };

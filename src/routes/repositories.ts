@@ -158,7 +158,7 @@ export function registerRepositoryRoutes(app: FastifyInstance): void {
 
       const { createGitConnector } = await import("../modules/git-connector/git-connector.js");
       const { createCredentialStore } = await import("../modules/git-connector/credential-store.js");
-      const encKey = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY ?? "0".repeat(64), "hex");
+      const encKey = Buffer.from(app.config.credentialEncryptionKey, "hex");
       const gitConfig = { workDir: "/tmp/pm-repos", maxFileSizeBytes: 1_048_576, defaultCommitLimit: 1 };
       const git = createGitConnector(createCredentialStore(app.db, encKey), encKey, gitConfig);
       await git.connect(repositoryId, repo.url);

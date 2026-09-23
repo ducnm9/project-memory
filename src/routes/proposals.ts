@@ -2,10 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { createProposalStore } from "../modules/ingestion/proposal-repository.js";
 import { createKnowledgeItemStore } from "../modules/knowledge-core/repository.js";
 import { createKnowledgeVersionStore } from "../modules/knowledge-core/version-repository.js";
+import { createAuditEventStore } from "../modules/governance/audit-repository.js";
+import { SearchIndexer } from "../modules/retrieval/search-indexer.js";
 import { orgIdSchema, projectIdSchema } from "../modules/project-context/entities.js";
 import { PROPOSAL_STATUSES, type ProposalStatus } from "../modules/ingestion/entities.js";
 import { z } from "zod";
 import {
+  ForbiddenScopeError,
   InvalidStatusTransitionError,
   NotFoundError,
   UnauthorizedError,
@@ -28,9 +31,14 @@ export function registerProposalRoutes(app: FastifyInstance): void {
     "/organizations/:orgId/projects/:projectId/proposals",
     BEARER,
     async (req) => {
+      const actor = req.actor;
+      if (!actor) throw new UnauthorizedError("missing credentials");
+
       const { orgId, projectId } = req.params as { orgId: string; projectId: string };
       parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
       parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+
+      if (actor.organizationId !== orgId) throw new ForbiddenScopeError("forbidden");
 
       const { status } = req.query as { status?: string };
 
@@ -55,6 +63,9 @@ export function registerProposalRoutes(app: FastifyInstance): void {
     "/organizations/:orgId/projects/:projectId/proposals/:id",
     BEARER,
     async (req) => {
+      const actor = req.actor;
+      if (!actor) throw new UnauthorizedError("missing credentials");
+
       const { orgId, projectId, id } = req.params as {
         orgId: string;
         projectId: string;
@@ -63,6 +74,8 @@ export function registerProposalRoutes(app: FastifyInstance): void {
       parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
       parseOrThrow(projectIdSchema, projectId, "project id is malformed");
       parseOrThrow(proposalIdSchema, id, "proposal id is malformed");
+
+      if (actor.organizationId !== orgId) throw new ForbiddenScopeError("forbidden");
 
       const store = createProposalStore(app.db);
       const proposal = await store.findById(orgId, id);
@@ -103,11 +116,11 @@ export function registerProposalRoutes(app: FastifyInstance): void {
         title: proposal.title,
         summary: proposal.summary,
         content: proposal.content,
-        status: "PROPOSED",
+        status: "PUBLISHED",
         ownerId: actor.actorId,
       });
 
-      await knowledgeStore.setSourceIds(orgId, item.id, proposal.sourceIds);
+      const itemWithSources = await knowledgeStore.setSourceIds(orgId, item.id, proposal.sourceIds);
 
       await vStore.append({
         organizationId: orgId,
@@ -116,6 +129,20 @@ export function registerProposalRoutes(app: FastifyInstance): void {
         snapshot: item,
         changedBy: actor.actorId,
         changeSummary: `created from proposal ${id}`,
+      });
+
+      if (itemWithSources) {
+        await new SearchIndexer(app.db).upsert(itemWithSources);
+      }
+
+      await createAuditEventStore(app.db).append({
+        organizationId: orgId,
+        eventType: "CREATE",
+        targetId: item.id,
+        targetType: "knowledge",
+        actorId: actor.actorId,
+        actorName: actor.actorId,
+        reason: `created from proposal ${id}`,
       });
 
       const approved = await proposalStore.approve(orgId, id, actor.actorId, item.id);

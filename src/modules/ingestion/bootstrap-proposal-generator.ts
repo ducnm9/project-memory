@@ -20,18 +20,19 @@ export class BootstrapProposalGenerator {
 
     for (const input of candidates) {
       const full: CreateProposalInput = { ...input, organizationId: orgId, projectId };
-      // Dedup check — hash from template summary (pre-enrichment)
+
+      // Optional: enrich Architecture module summaries with LLM first
+      if (llmModel && full.type === "Architecture" && full.title !== "Project Overview") {
+        full.summary = await enrichSummary(llmModel, full.title, full.summary).catch(() => full.summary);
+      }
+
+      // Hash after enrichment so re-runs match the stored (enriched) summary
       const hash = computeHash(full.type, full.title, full.summary);
       if (await this.proposals.existsByHash(orgId, projectId, hash)) {
         skipped++;
         continue;
       }
-      // Optional: enrich Architecture module summaries with LLM
-      if (llmModel && full.type === "Architecture" && full.title !== "Project Overview") {
-        // ponytail: hash computed pre-enrichment; on re-run the stored hash (post-enrichment) won't match.
-        // Fine for null-model (tested path). Fix if LLM dedup matters: hash after enrichment.
-        full.summary = await enrichSummary(llmModel, full.title, full.summary).catch(() => full.summary);
-      }
+
       created.push(await this.proposals.create(full));
     }
 

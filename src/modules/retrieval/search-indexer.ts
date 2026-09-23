@@ -14,42 +14,28 @@ export class SearchIndexer {
   async upsert(item: KnowledgeItem): Promise<void> {
     const searchText = buildSearchText(item);
     const now = new Date().toISOString();
-    const existing = await this.col().findOne(
+    await this.col().findOneAndUpdate(
       { organizationId: item.organizationId, knowledgeId: item.id } as Partial<SearchRecord>,
-      READ_OPTS,
-    );
-    if (existing) {
-      await this.col().updateOne(
-        { organizationId: item.organizationId, knowledgeId: item.id } as Partial<SearchRecord>,
-        {
-          $set: {
-            type: item.type,
-            status: item.status,
-            title: item.title,
-            searchText,
-            ownerId: item.ownerId,
-            lastVerifiedAt: item.lastVerifiedAt,
-            updatedAt: now,
-          },
+      {
+        $set: {
+          type: item.type,
+          status: item.status,
+          title: item.title,
+          searchText,
+          ownerId: item.ownerId,
+          lastVerifiedAt: item.lastVerifiedAt,
+          updatedAt: now,
+          projectId: item.projectId,
         },
-      );
-    } else {
-      const record: SearchRecord = {
-        id: newSearchRecordId(),
-        knowledgeId: item.id,
-        organizationId: item.organizationId,
-        projectId: item.projectId,
-        type: item.type,
-        status: item.status,
-        title: item.title,
-        searchText,
-        tags: [],
-        ownerId: item.ownerId,
-        lastVerifiedAt: item.lastVerifiedAt,
-        updatedAt: now,
-      };
-      await this.col().insertOne({ ...record });
-    }
+        $setOnInsert: {
+          id: newSearchRecordId(),
+          organizationId: item.organizationId,
+          knowledgeId: item.id,
+          tags: [],
+        },
+      } as Parameters<ReturnType<typeof this.col>["findOneAndUpdate"]>[1],
+      { upsert: true, projection: { _id: 0 } },
+    );
   }
 
   async remove(orgId: string, knowledgeId: string): Promise<void> {

@@ -18,7 +18,7 @@ import {
 
 declare module "fastify" {
   interface FastifyInstance {
-    config: Pick<AppConfig, "llm">;
+    config: Pick<AppConfig, "llm" | "credentialEncryptionKey">;
   }
 }
 
@@ -54,7 +54,7 @@ export function registerBootstrapRoutes(app: FastifyInstance): void {
       // Lazy import to avoid requiring a real git repo in tests
       const { createGitConnector } = await import("../modules/git-connector/git-connector.js");
       const { createCredentialStore } = await import("../modules/git-connector/credential-store.js");
-      const encKey = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY ?? "0".repeat(64), "hex");
+      const encKey = Buffer.from(app.config.credentialEncryptionKey, "hex");
       const credStore = createCredentialStore(app.db, encKey);
       const gitConfig = { workDir: "/tmp/pm-repos", maxFileSizeBytes: 1_048_576, defaultCommitLimit: 100 };
       const git = createGitConnector(credStore, encKey, gitConfig);

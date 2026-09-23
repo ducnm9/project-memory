@@ -29,6 +29,10 @@ function hashProposal(type: string, title: string, summary: string): string {
   return createHash("sha256").update(`${type}:${title}:${summary}`).digest("hex");
 }
 
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 11000;
+}
+
 export function createProposalStore(db: Db): ProposalStore {
   const col = () => db.collection<KnowledgeProposal>("proposals");
 
@@ -52,7 +56,18 @@ export function createProposalStore(db: Db): ProposalStore {
         reviewedAt: null,
         knowledgeItemId: null,
       };
-      await col().insertOne({ ...proposal });
+      try {
+        await col().insertOne({ ...proposal });
+      } catch (err) {
+        if (isDuplicateKeyError(err)) {
+          const existing = await col().findOne(
+            { organizationId: input.organizationId, projectId: input.projectId, contentHash: proposal.contentHash },
+            READ_OPTS,
+          );
+          if (existing) return existing as KnowledgeProposal;
+        }
+        throw err;
+      }
       return proposal;
     },
 

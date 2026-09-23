@@ -133,7 +133,7 @@ const ROOT_COLLECTION_INDEXES: ReadonlyArray<CollectionIndexes> = [
     collection: "project_snapshots",
     indexes: [
       { key: { id: 1 }, name: "id_unique", unique: true },
-      { key: { projectId: 1, archivedAt: 1 }, name: "project_current" },
+      { key: { organizationId: 1, projectId: 1, archivedAt: 1 }, name: "project_current" },
     ],
   },
 ];

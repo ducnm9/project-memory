@@ -24,7 +24,7 @@ function buildApp() {
     enriched.projectContext = { organizationId: orgId, projectId: null };
   });
   registerErrorHandler(app);
-  registerKnowledgeRoutes(app);
+  registerKnowledgeRoutes(app, { embedding: null } as import("../../src/config/index.js").AppConfig);
   registerKnowledgeVersionRoutes(app);
   return app;
 }

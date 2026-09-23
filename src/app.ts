@@ -46,7 +46,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerTenantContext(app);
   registerOrganizationRoutes(app);
   registerRepositoryRoutes(app);
-  registerKnowledgeRoutes(app);
+  registerKnowledgeRoutes(app, config);
   registerKnowledgeVersionRoutes(app);
   registerSourceRoutes(app);
   registerFactRoutes(app);

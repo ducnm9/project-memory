@@ -66,6 +66,11 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { organizationId: 1, targetId: 1, timestamp: 1 }, name: "target_trail" },
     { key: { organizationId: 1, actorId: 1 }, name: "actor_lookup" },
   ],
+  knowledge_gaps: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, question: 1 }, name: "project_question_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1, occurrenceCount: -1 }, name: "project_status_occurrence" },
+  ],
 };
 
 export const CORE_INDEXES: ReadonlyArray<CollectionIndexes> = CORE_COLLECTIONS.map(

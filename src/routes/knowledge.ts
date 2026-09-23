@@ -30,6 +30,7 @@ import {
 } from "../lib/errors.js";
 import { createAuditEventStore } from "../modules/governance/audit-repository.js";
 import type { AuditEventType } from "../modules/governance/audit-entities.js";
+import { createGapStore } from "../modules/knowledge-core/gap-repository.js";
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -69,6 +70,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   const vStore = () => createKnowledgeVersionStore(app.db);
   const sourceStore = () => createSourceStore(app.db);
   const auditStore = () => createAuditEventStore(app.db);
+  const gapStore = () => createGapStore(app.db);
 
   function actorName(actor: { actorId: string; name?: string }): string {
     return actor.name ?? actor.actorId;
@@ -77,6 +79,30 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
   async function requireProject(organizationId: string, projectId: string): Promise<void> {
     if (!(await projects().getProject(organizationId, projectId))) throw new TenantNotFoundError();
   }
+
+  // Must be before /knowledge/:id to avoid parametric-route capture
+  app.get("/knowledge/ask", BEARER, async (req) => {
+    const ctx = context(req);
+    const query = req.query as { projectId?: string; question?: string };
+
+    const rawQuestion = (query.question ?? "").trim();
+    if (!rawQuestion) throw new ValidationError("question is required");
+
+    const projectId = parseOrThrow(projectIdSchema, query.projectId, "projectId is malformed");
+    await requireProject(ctx.organizationId, projectId);
+
+    const all = await store().findByProject(ctx.organizationId, { projectId });
+    const q = rawQuestion.toLowerCase();
+    const items = all.filter(
+      (item) =>
+        item.title.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q),
+    );
+
+    if (items.length > 0) return { items };
+
+    const gap = await gapStore().upsertOnQuestion(ctx.organizationId, projectId, rawQuestion);
+    return { items: [], gap };
+  });
 
   app.post("/knowledge", BEARER, async (req, reply) => {
     const actor = req.actor;

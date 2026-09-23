@@ -16,6 +16,7 @@ import { registerFactVersionRoutes } from "./routes/fact-versions.js";
 import { registerRelationRoutes } from "./routes/relations.js";
 import { registerRelationVersionRoutes } from "./routes/relation-versions.js";
 import { registerAuditEventRoutes } from "./routes/audit-events.js";
+import { registerGapRoutes } from "./routes/gaps.js";
 
 declare module "fastify" {
   interface FastifyInstance {
@@ -49,6 +50,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerRelationRoutes(app);
   registerRelationVersionRoutes(app);
   registerAuditEventRoutes(app);
+  registerGapRoutes(app);
   registerTokenRoutes(app, config.authTokenPepper);
 
   return app;

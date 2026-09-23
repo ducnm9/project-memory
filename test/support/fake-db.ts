@@ -84,6 +84,13 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           list.splice(index, 1);
           return { deletedCount: 1 };
         },
+        updateMany: async (filter: Row, update: { $set?: Row }) => {
+          const matching = list.filter((r) => matches(r, filter));
+          for (const row of matching) {
+            if (update.$set) Object.assign(row, update.$set);
+          }
+          return { matchedCount: matching.length, modifiedCount: matching.length };
+        },
       };
     },
   } as unknown as Db;

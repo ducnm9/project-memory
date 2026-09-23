@@ -35,30 +35,35 @@ export function createGitConnector(
       let gitUrl = cloneUrl;
       let sshKeyPath: string | null = null;
 
-      if (credential?.type === "token") {
-        const plaintext = decryptCredential(credential, encryptionKey);
-        const u = new URL(cloneUrl);
-        u.username = "x-access-token";
-        u.password = plaintext;
-        gitUrl = u.toString();
-      } else if (credential?.type === "deploy_key") {
-        sshKeyPath = join(config.workDir, ".ssh", repositoryId);
-        await mkdir(join(config.workDir, ".ssh"), { recursive: true });
-        const plaintext = decryptCredential(credential, encryptionKey);
-        await writeFile(sshKeyPath, plaintext, { mode: 0o600 });
-      }
-
       // Two instances: clone needs baseDir=workDir, fetch needs baseDir=localPath.
       // Both get SSH env so deploy key auth works on re-connect (fetch) too.
       const gitClone = simpleGit({ baseDir: config.workDir });
       const gitFetch = simpleGit(localPath);
-      if (sshKeyPath) {
-        const sshCmd = `ssh -i ${sshKeyPath} -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
-        gitClone.env("GIT_SSH_COMMAND", sshCmd);
-        gitFetch.env("GIT_SSH_COMMAND", sshCmd);
-      }
 
       try {
+        if (credential?.type === "token") {
+          const plaintext = decryptCredential(credential, encryptionKey);
+          // new URL() can throw TypeError on malformed URLs — wrap inside try so it becomes GitCloneError
+          const u = new URL(cloneUrl);
+          u.username = "x-access-token";
+          u.password = plaintext;
+          gitUrl = u.toString();
+        } else if (credential?.type === "deploy_key") {
+          sshKeyPath = join(config.workDir, ".ssh", repositoryId);
+          // mkdir+writeFile moved inside try so finally cleanup always covers them
+          await mkdir(join(config.workDir, ".ssh"), { recursive: true });
+          const plaintext = decryptCredential(credential, encryptionKey);
+          await writeFile(sshKeyPath, plaintext, { mode: 0o600 });
+        }
+
+        if (sshKeyPath) {
+          // Single-quote the path and escape any embedded single-quotes to prevent shell injection
+          const escapedKeyPath = sshKeyPath.replace(/'/g, "'\\''");
+          const sshCmd = `ssh -i '${escapedKeyPath}' -o StrictHostKeyChecking=no -o IdentitiesOnly=yes`;
+          gitClone.env("GIT_SSH_COMMAND", sshCmd);
+          gitFetch.env("GIT_SSH_COMMAND", sshCmd);
+        }
+
         if (existsSync(join(localPath, ".git"))) {
           await gitFetch.fetch("origin");
         } else {
@@ -81,7 +86,12 @@ export function createGitConnector(
       const localPath = getLocalPath(repositoryId);
       const args = ["ls-tree", "-r", "-l", "HEAD"];
       if (subPath) args.push("--", subPath);
-      const output: string = await simpleGit(localPath).raw(args);
+      let output: string;
+      try {
+        output = await simpleGit(localPath).raw(args);
+      } catch (err) {
+        throw new GitCloneError(`failed to list files for repository ${repositoryId}`, err);
+      }
       if (!output.trim()) return [];
 
       // ponytail: only blobs returned by -r; directories not emitted in recursive mode.
@@ -122,12 +132,17 @@ export function createGitConnector(
     async readCommits(repositoryId, limit) {
       const localPath = getLocalPath(repositoryId);
       const n = limit ?? config.defaultCommitLimit;
-      const output: string = await simpleGit(localPath).raw([
-        "log",
-        `--max-count=${n}`,
-        "--format=%x00COMMIT%x00%H%x01%an%x01%ae%x01%aI%x01%s",
-        "--name-only",
-      ]);
+      let output: string;
+      try {
+        output = await simpleGit(localPath).raw([
+          "log",
+          `--max-count=${n}`,
+          "--format=%x00COMMIT%x00%H%x01%an%x01%ae%x01%aI%x01%s",
+          "--name-only",
+        ]);
+      } catch (err) {
+        throw new GitCloneError(`failed to read commits for repository ${repositoryId}`, err);
+      }
 
       return output
         .split("\x00COMMIT\x00")

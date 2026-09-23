@@ -23,7 +23,7 @@ const schema = z.object({
   MONGODB_DB_NAME: z.string().min(1),
   AUTH_ADMIN_KEY: z.string().default(""),
   AUTH_TOKEN_PEPPER: z.string().default(""),
-  CREDENTIAL_ENCRYPTION_KEY: z.string().default(""),
+  CREDENTIAL_ENCRYPTION_KEY: z.string().default("0".repeat(64)),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppConfig> {

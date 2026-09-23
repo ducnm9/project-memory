@@ -91,6 +91,12 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           }
           return { matchedCount: matching.length, modifiedCount: matching.length };
         },
+        updateOne: async (filter: Row, update: { $set?: Row }) => {
+          const row = list.find((r) => matches(r, filter));
+          if (!row) return { matchedCount: 0, modifiedCount: 0 };
+          if (update.$set) Object.assign(row, update.$set);
+          return { matchedCount: 1, modifiedCount: 1 };
+        },
       };
     },
   } as unknown as Db;

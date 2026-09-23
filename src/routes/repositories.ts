@@ -135,4 +135,47 @@ export function registerRepositoryRoutes(app: FastifyInstance): void {
       return null;
     },
   );
+
+  app.post(
+    "/organizations/:orgId/projects/:projectId/repositories/:repositoryId/sync",
+    BEARER,
+    async (req) => {
+      const actor = req.actor;
+      if (!actor) throw new UnauthorizedError("missing credentials");
+
+      const { orgId, projectId, repositoryId } = req.params as {
+        orgId: string;
+        projectId: string;
+        repositoryId: string;
+      };
+      parseOrThrow(orgIdSchema, orgId, "organization id is malformed");
+      parseOrThrow(projectIdSchema, projectId, "project id is malformed");
+      parseOrThrow(repositoryIdSchema, repositoryId, "repository id is malformed");
+
+      const repoStore = store();
+      const repo = await repoStore.findById(orgId, repositoryId);
+      if (!repo) throw new RepositoryNotFoundError();
+
+      const { createGitConnector } = await import("../modules/git-connector/git-connector.js");
+      const { createCredentialStore } = await import("../modules/git-connector/credential-store.js");
+      const encKey = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY ?? "0".repeat(64), "hex");
+      const gitConfig = { workDir: "/tmp/pm-repos", maxFileSizeBytes: 1_048_576, defaultCommitLimit: 1 };
+      const git = createGitConnector(createCredentialStore(app.db, encKey), encKey, gitConfig);
+      await git.connect(repositoryId, repo.url);
+
+      const { IncrementalSync } = await import("../modules/ingestion/incremental-sync.js");
+      const { createKnowledgeItemStore } = await import("../modules/knowledge-core/repository.js");
+      const { createSourceStore } = await import("../modules/knowledge-core/source-repository.js");
+      const { createProposalStore } = await import("../modules/ingestion/proposal-repository.js");
+
+      const syncService = new IncrementalSync(
+        git,
+        createKnowledgeItemStore(app.db),
+        createSourceStore(app.db),
+        createProposalStore(app.db),
+        repoStore,
+      );
+      return syncService.sync(orgId, projectId, repositoryId);
+    },
+  );
 }

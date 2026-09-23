@@ -21,6 +21,9 @@ function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
     updatedAt: "2026-01-01T00:00:00.000Z",
     lastVerifiedAt: null,
     sourceIds: [],
+    embedding: null,
+    embeddingModel: null,
+    embeddingUpdatedAt: null,
     ...overrides,
   };
 }

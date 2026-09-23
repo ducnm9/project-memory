@@ -21,6 +21,12 @@ export interface AppConfig {
     model: string;
     apiKey: string;
   } | null;
+  embedding: {
+    provider: 'openai';
+    model: string;
+    dimensions: number;
+    apiKey: string;
+  } | null;
 }
 
 const schema = z.object({
@@ -40,6 +46,10 @@ const schema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
+  EMBEDDING_PROVIDER: z.enum(['openai']).optional(),
+  EMBEDDING_MODEL: z.string().optional(),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().optional(),
+  EMBEDDING_API_KEY: z.string().optional(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppConfig> {
@@ -78,6 +88,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Readonly<AppCo
         : undefined;
       if (!provider || !apiKey) return null;
       return { provider, model: data.LLM_MODEL ?? defaultModel(provider), apiKey };
+    })(),
+    embedding: (() => {
+      const provider = data.EMBEDDING_PROVIDER;
+      if (!provider) return null;
+      // Fall back to OPENAI_API_KEY when no dedicated embedding key is set
+      const apiKey = data.EMBEDDING_API_KEY ?? data.OPENAI_API_KEY;
+      if (!apiKey) return null;
+      return {
+        provider,
+        model: data.EMBEDDING_MODEL ?? 'text-embedding-3-small',
+        dimensions: data.EMBEDDING_DIMENSIONS ?? 1536,
+        apiKey,
+      };
     })(),
   });
 }

@@ -23,6 +23,7 @@ import { registerProposalRoutes } from "./routes/proposals.js";
 declare module "fastify" {
   interface FastifyInstance {
     db: Db;
+    config: import('./config/index.js').AppConfig;
   }
 }
 

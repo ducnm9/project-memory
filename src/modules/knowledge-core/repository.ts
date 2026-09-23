@@ -73,6 +73,9 @@ export function createKnowledgeItemStore(db: Db): KnowledgeItemStore {
         updatedAt: now,
         lastVerifiedAt: null,
         sourceIds: [],
+        embedding: null,
+        embeddingModel: null,
+        embeddingUpdatedAt: null,
       };
       await col().insertOne({ ...item });
       return item;

@@ -6,7 +6,6 @@ import { createProposalStore } from "../modules/ingestion/proposal-repository.js
 import { BootstrapProposalGenerator } from "../modules/ingestion/bootstrap-proposal-generator.js";
 import { RepositoryAnalyzer } from "../modules/repository-analyzer/index.js";
 import { createLLMModel, createLLMAssistant } from "../lib/llm.js";
-import type { AppConfig } from "../config/index.js";
 import { orgIdSchema, projectIdSchema } from "../modules/project-context/entities.js";
 import {
   NotFoundError,
@@ -16,11 +15,7 @@ import {
   ValidationError,
 } from "../lib/errors.js";
 
-declare module "fastify" {
-  interface FastifyInstance {
-    config: Pick<AppConfig, "llm" | "credentialEncryptionKey">;
-  }
-}
+// config is declared on FastifyInstance in src/app.ts
 
 function parseOrThrow<T>(schema: { safeParse(v: unknown): { success: boolean; data?: T } }, value: unknown, message: string): T {
   const r = schema.safeParse(value);

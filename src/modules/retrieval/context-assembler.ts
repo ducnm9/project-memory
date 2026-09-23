@@ -48,7 +48,7 @@ export class ContextAssembler {
 
     const knowledgeItems = (await this.db
       .collection<KnowledgeItem>('knowledge_items')
-      .find({ organizationId: orgId } as unknown as Partial<KnowledgeItem>, READ_OPTS)
+      .find({ organizationId: orgId, projectId } as unknown as Partial<KnowledgeItem>, READ_OPTS)
       .toArray()) as KnowledgeItem[];
     const itemMap = new Map(knowledgeItems.map((i) => [i.id, i]));
 
@@ -58,12 +58,13 @@ export class ContextAssembler {
       .toArray()) as Relation[];
 
     const allSourceIds = [...new Set(knowledgeItems.flatMap((i) => i.sourceIds ?? []))];
-    const sources = allSourceIds.length > 0
+    const allSources = allSourceIds.length > 0
       ? (await this.db
           .collection<Source>('sources')
-          .find({ organizationId: orgId } as unknown as Partial<Source>, READ_OPTS)
+          .find({ organizationId: orgId, projectId } as unknown as Partial<Source>, READ_OPTS)
           .toArray()) as Source[]
       : [];
+    const sources = allSources.filter((s) => allSourceIds.includes(s.id));
     const sourceMap = new Map(sources.map((s) => [s.id, s]));
 
     const items: ContextItem[] = [];

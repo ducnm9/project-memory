@@ -30,8 +30,14 @@ import {
 } from "../lib/errors.js";
 import { createAuditEventStore } from "../modules/governance/audit-repository.js";
 import type { AuditEventType } from "../modules/governance/audit-entities.js";
-import { createGapStore } from "../modules/knowledge-core/gap-repository.js";
 import { SearchIndexer } from "../modules/retrieval/search-indexer.js";
+import type { AppConfig } from '../config/index.js';
+import { EmbeddingPipeline } from '../modules/retrieval/embedding-pipeline.js';
+import { VectorSearchService } from '../modules/retrieval/vector-search.js';
+import { HybridRetriever } from '../modules/retrieval/hybrid-retriever.js';
+import { Reranker } from '../modules/retrieval/reranker.js';
+import { RelationExpander } from '../modules/retrieval/relation-expander.js';
+import { ContextAssembler } from '../modules/retrieval/context-assembler.js';
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -64,15 +70,23 @@ function parseOrThrow<T>(
   return result.data as T;
 }
 
-export function registerKnowledgeRoutes(app: FastifyInstance): void {
+export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig): void {
   const BEARER = { config: { auth: "bearer" as const } };
   const projects = () => createProjectContextRepository(app.db);
   const store = () => createKnowledgeItemStore(app.db);
   const vStore = () => createKnowledgeVersionStore(app.db);
   const sourceStore = () => createSourceStore(app.db);
   const auditStore = () => createAuditEventStore(app.db);
-  const gapStore = () => createGapStore(app.db);
   const searchIndexer = () => new SearchIndexer(app.db);
+  const embeddingPipeline = () =>
+    config.embedding ? new EmbeddingPipeline(app.db, config.embedding) : null;
+  const vectorSearch = () => new VectorSearchService(app.db, config.embedding);
+  const hybridRetriever = () =>
+    new HybridRetriever(searchIndexer(), vectorSearch());
+  const reranker = () =>
+    new Reranker(process.env.COHERE_API_KEY);
+  const relationExpander = () => new RelationExpander(app.db);
+  const contextAssembler = () => new ContextAssembler(app.db);
 
   function actorName(actor: { actorId: string; name?: string }): string {
     return actor.name ?? actor.actorId;
@@ -93,17 +107,40 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
     const projectId = parseOrThrow(projectIdSchema, query.projectId, "projectId is malformed");
     await requireProject(ctx.organizationId, projectId);
 
-    const all = await store().findByProject(ctx.organizationId, { projectId });
-    const q = rawQuestion.toLowerCase();
-    const items = all.filter(
-      (item) =>
-        item.title.toLowerCase().includes(q) || item.summary.toLowerCase().includes(q),
+    const candidates = await hybridRetriever().search({
+      orgId: ctx.organizationId,
+      query: rawQuestion,
+      projectId,
+    });
+    const reranked = await reranker().rerank(rawQuestion, candidates);
+    const expanded = await relationExpander().expand(reranked, ctx.organizationId, projectId);
+    return contextAssembler().assemble(rawQuestion, expanded, ctx.organizationId, projectId);
+  });
+
+  // Must be before /knowledge/:id/... to avoid parametric-route capture
+  app.post("/knowledge/embeddings/rebuild", BEARER, async (req) => {
+    const ctx = context(req);
+    const { projectId: qProjectId } = req.query as { projectId?: string };
+    if (!qProjectId) throw new ValidationError("projectId query param required");
+    parseOrThrow(projectIdSchema, qProjectId, "projectId is malformed");
+    await requireProject(ctx.organizationId, qProjectId);
+
+    const pipeline = embeddingPipeline();
+    if (!pipeline) return { queued: 0, reason: "embedding not configured" };
+
+    const items = await store().findByProject(ctx.organizationId, {
+      projectId: qProjectId,
+      status: "PUBLISHED",
+    });
+    const toEmbed = items.filter((i) => pipeline.needsReEmbed(i));
+    const ids = toEmbed.map((i) => i.id);
+    // Fire-and-forget — respond immediately with count
+    // ponytail: fire-and-forget embed; replace with a job queue (Bull/BeeQueue)
+    // when publish latency or retry reliability becomes a concern
+    pipeline.embedBatch(ctx.organizationId, ids).catch((err) =>
+      app.log.error({ err }, "embedBatch failed"),
     );
-
-    if (items.length > 0) return { items };
-
-    const gap = await gapStore().upsertOnQuestion(ctx.organizationId, projectId, rawQuestion);
-    return { items: [], gap };
+    return { queued: ids.length };
   });
 
   // Must be before /knowledge/:id/... to avoid parametric-route capture
@@ -178,9 +215,33 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
     });
     if (item.status === "PUBLISHED") {
       await searchIndexer().upsert(item);
+      // ponytail: fire-and-forget embed; replace with a job queue (Bull/BeeQueue)
+      // when publish latency or retry reliability becomes a concern
+      embeddingPipeline()?.embedItem(ctx.organizationId, item.id).catch((err) =>
+        app.log.error({ err, itemId: item.id }, "embed failed on create"),
+      );
     }
     reply.status(201);
     return item;
+  });
+
+  app.get("/search", BEARER, async (req) => {
+    const ctx = context(req);
+    const query = req.query as { q?: string; projectId?: string; type?: string; status?: string; limit?: string };
+
+    if (!query.q) throw new ValidationError("q is required");
+    const projectId = parseOrThrow(projectIdSchema, query.projectId, "projectId is malformed");
+    await requireProject(ctx.organizationId, projectId);
+
+    const results = await hybridRetriever().search({
+      orgId: ctx.organizationId,
+      query: query.q,
+      projectId,
+      typeFilter: query.type ? [query.type] : undefined,
+      statusFilter: query.status ? [query.status] : undefined,
+      limit: query.limit ? parseInt(query.limit, 10) : 20,
+    });
+    return { results, query: query.q, total: results.length };
   });
 
   app.get("/knowledge/:id", BEARER, async (req) => {
@@ -268,6 +329,11 @@ export function registerKnowledgeRoutes(app: FastifyInstance): void {
 
     if (updated.status === "PUBLISHED" || updated.status === "STALE") {
       await searchIndexer().upsert(updated);
+      // ponytail: fire-and-forget embed; replace with a job queue (Bull/BeeQueue)
+      // when publish latency or retry reliability becomes a concern
+      embeddingPipeline()?.embedItem(ctx.organizationId, updated.id).catch((err) =>
+        app.log.error({ err, itemId: updated.id }, "embed failed on update"),
+      );
     } else if (updated.status === "DEPRECATED" || updated.status === "REJECTED") {
       await searchIndexer().remove(ctx.organizationId, updated.id);
     }

@@ -7,6 +7,7 @@ const base: AppConfig = {
   logLevel: "silent", mongodbUri: "x", mongodbDbName: "x",
   authAdminKey: "", authTokenPepper: "", credentialEncryptionKey: "0".repeat(64),
   llm: null,
+  embedding: null,
 };
 
 describe("createLLMModel", () => {

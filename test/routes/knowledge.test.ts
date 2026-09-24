@@ -25,7 +25,7 @@ function buildApp(rows: Collections, withContext = true): FastifyInstance {
     if (withContext) enriched.projectContext = { organizationId: orgId, projectId: null };
   });
   registerErrorHandler(app);
-  registerKnowledgeRoutes(app);
+  registerKnowledgeRoutes(app, { embedding: null } as import("../../src/config/index.js").AppConfig);
   return app;
 }
 

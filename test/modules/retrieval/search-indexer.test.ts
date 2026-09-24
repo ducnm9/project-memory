@@ -23,6 +23,9 @@ function makeItem(overrides: Partial<KnowledgeItem> = {}): KnowledgeItem {
     updatedAt: "",
     lastVerifiedAt: null,
     sourceIds: [],
+    embedding: null,
+    embeddingModel: null,
+    embeddingUpdatedAt: null,
     ...overrides,
   };
 }

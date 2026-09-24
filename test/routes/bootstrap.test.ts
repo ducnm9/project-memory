@@ -19,7 +19,7 @@ function buildApp(rows: Collections): FastifyInstance {
     r.actor = { actorId: "tok_1", organizationId: orgId, type: "service" };
     r.projectContext = { organizationId: orgId, projectId: null };
   });
-  app.decorate("config", { llm: null, credentialEncryptionKey: "0".repeat(64) });
+  app.decorate("config", { llm: null, credentialEncryptionKey: "0".repeat(64) } as unknown as import("../../src/config/index.js").AppConfig);
   registerErrorHandler(app);
   registerBootstrapRoutes(app);
   return app;

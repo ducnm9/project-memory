@@ -25,6 +25,7 @@ const CORE_COLLECTIONS = [
   "fact_versions",
   "relation_versions",
   "search_records",
+  "conflicts",
 ] as const;
 
 type CoreCollection = (typeof CORE_COLLECTIONS)[number];
@@ -83,6 +84,11 @@ const CORE_COLLECTION_EXTRA_INDEXES: Partial<Record<CoreCollection, readonly Ind
     { key: { organizationId: 1, knowledgeId: 1 }, name: "knowledge_unique", unique: true },
     { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
     { key: { searchText: "text" }, name: "search_text_index" } as IndexSpec,
+  ],
+  conflicts: [
+    { key: { id: 1 }, name: "id_unique", unique: true },
+    { key: { organizationId: 1, projectId: 1, status: 1 }, name: "project_status" },
+    { key: { proposalId: 1 }, name: "proposal_lookup" },
   ],
 };
 

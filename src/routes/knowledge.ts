@@ -12,6 +12,7 @@ import {
 import {
   createKnowledgeItemStore,
   type KnowledgeItemFilter,
+  type UpdateKnowledgeItemPatch,
 } from "../modules/knowledge-core/repository.js";
 import { createKnowledgeVersionStore } from "../modules/knowledge-core/version-repository.js";
 import { sourceIdSchema } from "../modules/knowledge-core/source-entities.js";
@@ -433,6 +434,34 @@ export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig)
       snapshot: updated,
       changedBy: actor.actorId,
       changeSummary: `detached source ${sourceId}`,
+    });
+    return updated;
+  });
+
+  app.patch("/knowledge/:id/verify", BEARER, async (req) => {
+    const actor = req.actor;
+    if (!actor) throw new UnauthorizedError("missing credentials");
+    const ctx = context(req);
+    const { id } = req.params as { id: string };
+    parseOrThrow(knowledgeIdSchema, id, "knowledge id is malformed");
+
+    const item = await store().findById(ctx.organizationId, id);
+    if (!item) throw new KnowledgeNotFoundError();
+
+    const now = new Date().toISOString();
+    const patch: UpdateKnowledgeItemPatch = { lastVerifiedAt: now };
+    if (item.status === "STALE") patch.status = "PUBLISHED";
+
+    const updated = await store().update(ctx.organizationId, id, patch);
+    if (!updated) throw new KnowledgeNotFoundError();
+
+    await auditStore().append({
+      organizationId: ctx.organizationId,
+      eventType: "VERIFY",
+      targetId: id,
+      targetType: "knowledge",
+      actorId: actor.actorId,
+      actorName: actorName(actor),
     });
     return updated;
   });

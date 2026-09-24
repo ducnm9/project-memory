@@ -15,6 +15,7 @@ const EXPECTED_COLLECTIONS = [
   "fact_versions",
   "relation_versions",
   "search_records",
+  "conflicts",
 ];
 
 describe("CORE_INDEXES", () => {

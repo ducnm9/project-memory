@@ -30,6 +30,7 @@ export interface UpdateKnowledgeItemPatch {
   summary?: string;
   content?: Record<string, unknown>;
   status?: KnowledgeStatus;
+  lastVerifiedAt?: string;
 }
 
 export interface KnowledgeItemStore {

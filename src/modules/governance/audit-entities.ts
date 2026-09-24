@@ -10,7 +10,9 @@ export type AuditEventType =
   | "APPROVE"
   | "REJECT"
   | "VERIFY"
-  | "MARK_STALE";
+  | "MARK_STALE"
+  | "REQUEST_CHANGES"
+  | "RESOLVE_CONFLICT";
 
 export type AuditTargetType = "knowledge" | "relation" | "fact";
 

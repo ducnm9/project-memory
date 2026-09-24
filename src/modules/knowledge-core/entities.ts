@@ -39,6 +39,7 @@ export interface KnowledgeItem {
   updatedAt: string;
   lastVerifiedAt: string | null;
   sourceIds: string[];
+  contentHash?: string;
   embedding: number[] | null;
   embeddingModel: string | null;
   embeddingUpdatedAt: string | null;

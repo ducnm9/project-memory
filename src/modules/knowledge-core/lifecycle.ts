@@ -13,7 +13,7 @@ const TRANSITIONS: Record<KnowledgeStatus, readonly KnowledgeStatus[]> = {
   PUBLISHED: ["UPDATED", "STALE", "DEPRECATED"],
   REJECTED: [],
   UPDATED: [],
-  STALE: [],
+  STALE: ["PUBLISHED"],
   DEPRECATED: [],
 };
 

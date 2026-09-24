@@ -10,27 +10,51 @@ export async function proposeKnowledge(
   db: Db,
   config: AppConfig,
 ): Promise<unknown> {
-  const { type, title, content, orgId, projectId } = args as Record<string, string>;
-  if (!type || !title || !content) throw new Error("type, title, and content are required");
+  const type = args.type;
+  const title = args.title;
+  const orgId = args.orgId;
+  const projectId = args.projectId;
+  const content = args.content;
 
-  const summary = typeof args.summary === "string" ? args.summary : title;
+  if (!type || !title || !content || !orgId || !projectId) {
+    throw new Error("type, title, content, orgId, and projectId are required");
+  }
+  if (typeof content !== "object" || content === null || Array.isArray(content)) {
+    throw new Error("content must be an object");
+  }
+
+  const summary = typeof args.summary === "string" ? args.summary : (title as string);
   const sourceIds = Array.isArray(args.sourceIds) ? (args.sourceIds as string[]) : [];
 
   const dupDetector = new DuplicateDetector(db, config.embedding ?? undefined);
-  const dupResult = await dupDetector.detect(orgId, projectId, type, title, summary, sourceIds);
+  const dupResult = await dupDetector.detect(
+    orgId as string,
+    projectId as string,
+    type as string,
+    title as string,
+    summary,
+    sourceIds,
+  );
   if (dupResult?.duplicate) throw new Error(`Duplicate detected: ${dupResult.existingId}`);
 
   const contraDetector = new ContradictionDetector(db, config.llm ?? undefined, config.embedding ?? undefined);
-  const contradictions = await contraDetector.detect(orgId, projectId, type, title, summary, content as unknown as Record<string, unknown>);
+  const contradictions = await contraDetector.detect(
+    orgId as string,
+    projectId as string,
+    type as string,
+    title as string,
+    summary,
+    content as Record<string, unknown>,
+  );
 
   const store = createProposalStore(db);
   const proposal = await store.create({
-    organizationId: orgId,
-    projectId,
+    organizationId: orgId as string,
+    projectId: projectId as string,
     type: type as KnowledgeType,
-    title,
+    title: title as string,
     summary,
-    content: content as unknown as Record<string, unknown>,
+    content: content as Record<string, unknown>,
     sourceIds,
     triggeredBy: "manual",
     proposedBy: "mcp-agent",
@@ -38,5 +62,9 @@ export async function proposeKnowledge(
     validationResults: [],
   });
 
-  return { proposal, contradictions };
+  return {
+    proposal,
+    contradictions,
+    duplicateWarning: dupResult?.duplicate === false ? dupResult : null,
+  };
 }

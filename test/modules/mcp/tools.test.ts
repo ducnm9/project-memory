@@ -3,6 +3,7 @@ import type { AppConfig } from "../../../src/config/index.js";
 import { createFakeDb } from "../../support/fake-db.js";
 import { searchKnowledge } from "../../../src/modules/mcp/tools/search.js";
 import { analyzeImpact } from "../../../src/modules/mcp/tools/impact.js";
+import { proposeKnowledge } from "../../../src/modules/mcp/tools/propose.js";
 
 const stubConfig = { embedding: null, llm: null } as unknown as AppConfig;
 
@@ -33,5 +34,21 @@ describe("MCP analyzeImpact tool", () => {
       stubConfig,
     );
     expect(result).toHaveProperty("impacts");
+  });
+});
+
+describe("MCP proposeKnowledge tool", () => {
+  it("throws for missing orgId", async () => {
+    const { db } = createFakeDb({});
+    await expect(
+      proposeKnowledge({ type: "Decision", title: "T", content: {}, projectId: "proj_1" }, db, stubConfig),
+    ).rejects.toThrow("required");
+  });
+
+  it("throws for non-object content", async () => {
+    const { db } = createFakeDb({});
+    await expect(
+      proposeKnowledge({ type: "Decision", title: "T", content: "a string", orgId: "org_1", projectId: "proj_1" }, db, stubConfig),
+    ).rejects.toThrow("object");
   });
 });

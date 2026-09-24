@@ -1,8 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import type { Db } from "mongodb";
 import type { AppConfig } from "../../../config/index.js";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function handleToolCall(
   name: string,
   args: Record<string, unknown>,

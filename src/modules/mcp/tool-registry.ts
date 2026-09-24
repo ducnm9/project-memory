@@ -24,6 +24,7 @@ export async function loadToolRegistry(): Promise<ToolSchema[]> {
         type: "object",
         properties: raw.properties ?? {},
         required: raw.required ?? [],
+        ...(raw.additionalProperties !== undefined && { additionalProperties: raw.additionalProperties }),
       },
     });
   }

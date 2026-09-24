@@ -203,7 +203,7 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
     const { orgId, projectId, id } = req.params as { orgId: string; projectId: string; id: string };
     if (actor.organizationId !== orgId) throw new ForbiddenScopeError("forbidden");
     parseOrThrow(proposalIdSchema, id, "proposal id is malformed");
-    const body = approveBodySchema.safeParse(req.body ?? {}).data ?? {};
+    const body = parseOrThrow(approveBodySchema, req.body ?? {}, "invalid approve body");
 
     const proposalStore = createProposalStore(app.db);
     const proposal = await proposalStore.findById(orgId, id);

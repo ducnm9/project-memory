@@ -29,8 +29,8 @@ export function registerTokenRoutes(app: FastifyInstance, pepper: string): void 
   app.post("/organizations/:orgId/tokens", ADMIN, async (req, reply) => {
     const { orgId } = req.params as { orgId: string };
     await requireOrg(orgId);
-    const { name } = parseOrThrow(createTokenBodySchema, req.body, "name is required");
-    const { token, secret } = await tokens().createToken(orgId, name);
+    const { name, role } = parseOrThrow(createTokenBodySchema, req.body, "name is required");
+    const { token, secret } = await tokens().createToken(orgId, name, role);
     reply.status(201);
     return { id: token.id, name: token.name, prefix: token.prefix, secret };
   });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import Fastify from "fastify";
+import Fastify, { type FastifyInstance } from "fastify";
 import { createFakeDb } from "../support/fake-db.js";
 import { registerConflictRoutes } from "../../src/routes/conflicts.js";
 import type { Actor } from "../../src/modules/auth/actor.js";
@@ -13,8 +13,10 @@ function buildApp(actor: Actor | undefined) {
   });
   const app = Fastify();
   app.decorate("db", db);
-  app.addHook("onRequest", async (req) => { (req as unknown as Record<string, unknown>).actor = actor; });
-  registerConflictRoutes(app);
+  app.addHook("onRequest", async (req) => {
+    (req as unknown as Record<string, unknown>).actor = actor;
+  });
+  registerConflictRoutes(app as unknown as FastifyInstance);
   return { app, rows };
 }
 

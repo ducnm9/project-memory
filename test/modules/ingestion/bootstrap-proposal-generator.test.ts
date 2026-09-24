@@ -33,7 +33,7 @@ describe("BootstrapProposalGenerator", () => {
     expect(created.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("all generated proposals have PROPOSED status", async () => {
+  it("all generated proposals have VALIDATING status", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
     const gen = new BootstrapProposalGenerator(store);

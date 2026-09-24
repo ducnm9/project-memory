@@ -34,6 +34,10 @@ function hashProposal(type: string, title: string, summary: string): string {
   return createHash("sha256").update(`${type}:${title}:${summary}`).digest("hex");
 }
 
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code: number }).code === 11000;
+}
+
 export function createProposalStore(db: Db): ProposalStore {
   const col = () => db.collection<Proposal>("proposals");
 
@@ -63,7 +67,18 @@ export function createProposalStore(db: Db): ProposalStore {
         createdAt: now,
         updatedAt: now,
       };
-      await col().insertOne({ ...proposal });
+      try {
+        await col().insertOne({ ...proposal });
+      } catch (err) {
+        if (isDuplicateKeyError(err)) {
+          const existing = await col().findOne(
+            { organizationId: input.organizationId, projectId: input.projectId, contentHash: proposal.contentHash } as unknown as Partial<Proposal>,
+            READ_OPTS,
+          );
+          if (existing) return existing as Proposal;
+        }
+        throw err;
+      }
       return proposal;
     },
 

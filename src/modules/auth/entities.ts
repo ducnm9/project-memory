@@ -21,7 +21,7 @@ const nameSchema = z.string().trim().min(1);
 export const createTokenBodySchema = z.object({
   name: nameSchema,
   role: z.enum(["ADMIN", "REVIEWER", "READER"]).default("READER"),
-});
+}).strict();
 
 export function newTokenId(): string {
   return `tok_${ulid()}`;

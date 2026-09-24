@@ -3,6 +3,7 @@ import type { Db } from "mongodb";
 import { newProposalId, type Proposal, type ProposalStatus } from "./proposal-entities.js";
 import type { KnowledgeType } from "../knowledge-core/entities.js";
 import type { ValidationResult } from "./proposal-entities.js";
+import { DuplicateProposalError } from "../../lib/errors.js";
 
 const READ_OPTS = { projection: { _id: 0 } } as const;
 
@@ -23,7 +24,7 @@ export interface CreateProposalInput {
 export interface ProposalStore {
   create(input: CreateProposalInput): Promise<Proposal>;
   findById(orgId: string, id: string): Promise<Proposal | null>;
-  findByProject(orgId: string, projectId: string, filter?: { status?: ProposalStatus }): Promise<Proposal[]>;
+  findByProject(orgId: string, projectId: string, filter?: { status?: ProposalStatus; limit?: number; offset?: number }): Promise<Proposal[]>;
   existsByHash(orgId: string, projectId: string, hash: string): Promise<boolean>;
   approve(orgId: string, id: string, actorId: string, knowledgeItemId: string): Promise<Proposal | null>;
   reject(orgId: string, id: string, actorId: string, reason: string): Promise<Proposal | null>;
@@ -75,7 +76,13 @@ export function createProposalStore(db: Db): ProposalStore {
             { organizationId: input.organizationId, projectId: input.projectId, contentHash: proposal.contentHash } as unknown as Partial<Proposal>,
             READ_OPTS,
           );
-          if (existing) return existing as Proposal;
+          if (existing) {
+            const existingProposal = existing as Proposal;
+            if (existingProposal.status === "REJECTED" || existingProposal.status === "CHANGES_REQUESTED") {
+              throw new DuplicateProposalError(`duplicate proposal (status: ${existingProposal.status}): ${existingProposal.id}`);
+            }
+            return existingProposal;
+          }
         }
         throw err;
       }
@@ -89,7 +96,10 @@ export function createProposalStore(db: Db): ProposalStore {
     async findByProject(orgId, projectId, filter) {
       const query: Record<string, unknown> = { organizationId: orgId, projectId };
       if (filter?.status) query.status = filter.status;
-      return col().find(query as unknown as Partial<Proposal>, READ_OPTS).toArray() as Promise<Proposal[]>;
+      let cursor = col().find(query as unknown as Partial<Proposal>, READ_OPTS).sort({ proposedAt: -1 });
+      if (filter?.offset) cursor = cursor.skip(filter.offset);
+      if (filter?.limit) cursor = cursor.limit(filter.limit);
+      return cursor.toArray() as Promise<Proposal[]>;
     },
 
     async existsByHash(orgId, projectId, hash) {

@@ -53,6 +53,8 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
           }
           let sortKey: string | null = null;
           let sortDir: 1 | -1 = 1;
+          let skipN = 0;
+          let limitN = 0;
           function toArray() {
             let results = list
               .filter((r) => matches(r, plainFilter))
@@ -71,17 +73,22 @@ export function createFakeDb(seed: Collections = {}): FakeDb {
                 return dir * (av < bv ? -1 : av > bv ? 1 : 0);
               });
             }
+            if (skipN) results = results.slice(skipN);
+            if (limitN) results = results.slice(0, limitN);
             return Promise.resolve(results);
           }
-          return {
+          const cursor = {
             sort: (spec: Record<string, 1 | -1>) => {
               const [key, dir] = Object.entries(spec)[0];
               sortKey = key;
               sortDir = dir;
-              return { toArray };
+              return cursor;
             },
+            skip: (n: number) => { skipN = n; return cursor; },
+            limit: (n: number) => { limitN = n; return cursor; },
             toArray,
           };
+          return cursor;
         },
         findOneAndUpdate: async (filter: Row, update: { $set?: Row; $inc?: Row; $setOnInsert?: Row }, options?: { upsert?: boolean; returnDocument?: string; projection?: Row }) => {
           const row = list.find((r) => matches(r, filter));

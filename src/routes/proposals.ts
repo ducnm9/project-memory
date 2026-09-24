@@ -111,15 +111,17 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
     if (!actor) throw new UnauthorizedError("missing credentials");
     const { orgId, projectId } = req.params as { orgId: string; projectId: string };
     if (actor.organizationId !== orgId) throw new ForbiddenScopeError("forbidden");
-    const { status } = req.query as { status?: string };
+    const { status, limit: limitStr, offset: offsetStr } = req.query as { status?: string; limit?: string; offset?: string };
     let statusFilter: (typeof PROPOSAL_STATUSES)[number] | undefined;
     if (status) {
       const r = z.enum(PROPOSAL_STATUSES).safeParse(status);
       if (!r.success) throw new ValidationError("invalid status");
       statusFilter = r.data;
     }
+    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 50, 100) : 50;
+    const offset = offsetStr ? parseInt(offsetStr, 10) || 0 : 0;
     const store = createProposalStore(app.db);
-    const proposals = await store.findByProject(orgId, projectId, { status: statusFilter });
+    const proposals = await store.findByProject(orgId, projectId, { status: statusFilter, limit, offset });
     return { proposals, total: proposals.length };
   });
 
@@ -165,6 +167,11 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
       });
       await new SearchIndexer(app.db).upsert(item);
       await proposalStore.approve(orgId, p.id, actor.actorId, item.id);
+      await createAuditEventStore(app.db).append({
+        organizationId: orgId, eventType: "APPROVE",
+        targetId: item.id, targetType: "knowledge",
+        actorId: actor.actorId, actorName: actor.actorId,
+      });
       results.push({ id: p.id, status: "approved", knowledgeItemId: item.id });
     }
     reply.status(207);
@@ -190,6 +197,11 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
     for (const p of proposals) {
       if (!p) continue;
       await proposalStore.reject(orgId, p.id, actor.actorId, reason);
+      await createAuditEventStore(app.db).append({
+        organizationId: orgId, eventType: "REJECT",
+        targetId: p.id, targetType: "knowledge",
+        actorId: actor.actorId, actorName: actor.actorId, reason,
+      });
       results.push({ id: p.id, status: "rejected" });
     }
     reply.status(207);
@@ -226,17 +238,19 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
       });
     }
 
-    if (knowledgeItem) {
-      await new SearchIndexer(app.db).upsert(knowledgeItem);
-    }
+    if (!knowledgeItem) throw new NotFoundError("knowledge item not found or could not be created");
+
+    await new SearchIndexer(app.db).upsert(knowledgeItem);
+
+    const approved = await proposalStore.approve(orgId, id, actor.actorId, knowledgeItem.id);
+    if (!approved) throw new NotFoundError("proposal already processed");
 
     await createAuditEventStore(app.db).append({
       organizationId: orgId, eventType: "APPROVE",
-      targetId: knowledgeItem?.id ?? id, targetType: "knowledge",
+      targetId: knowledgeItem.id, targetType: "knowledge",
       actorId: actor.actorId, actorName: actor.actorId,
     });
 
-    const approved = await proposalStore.approve(orgId, id, actor.actorId, knowledgeItem?.id ?? "");
     return { proposal: approved, knowledgeItem };
   });
 
@@ -254,11 +268,14 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
     if (!proposal || proposal.projectId !== projectId) throw new NotFoundError("proposal not found");
     if (proposal.status !== "VALIDATING") throw new InvalidStatusTransitionError(proposal.status, "REJECTED");
 
+    const rejected = await proposalStore.reject(orgId, id, actor.actorId, reason);
+    if (!rejected) throw new NotFoundError("proposal already processed");
+
     await createAuditEventStore(app.db).append({
       organizationId: orgId, eventType: "REJECT", targetId: id, targetType: "knowledge",
       actorId: actor.actorId, actorName: actor.actorId, reason,
     });
-    return proposalStore.reject(orgId, id, actor.actorId, reason);
+    return rejected;
   });
 
   app.post("/organizations/:orgId/projects/:projectId/proposals/:id/request-changes", BEARER, async (req) => {
@@ -275,10 +292,13 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
     if (!proposal || proposal.projectId !== projectId) throw new NotFoundError("proposal not found");
     if (proposal.status !== "VALIDATING") throw new InvalidStatusTransitionError(proposal.status, "CHANGES_REQUESTED");
 
+    const changed = await proposalStore.requestChanges(orgId, id, actor.actorId, feedback);
+    if (!changed) throw new NotFoundError("proposal already processed");
+
     await createAuditEventStore(app.db).append({
       organizationId: orgId, eventType: "REQUEST_CHANGES", targetId: id, targetType: "knowledge",
       actorId: actor.actorId, actorName: actor.actorId, reason: feedback,
     });
-    return proposalStore.requestChanges(orgId, id, actor.actorId, feedback);
+    return changed;
   });
 }

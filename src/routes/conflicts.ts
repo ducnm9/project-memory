@@ -54,11 +54,14 @@ export function registerConflictRoutes(app: FastifyInstance): void {
     const conflictStore = createConflictStore(app.db);
     const conflict = await conflictStore.findById(actor.organizationId, id);
     if (!conflict) throw new NotFoundError("conflict not found");
-    if (conflict.status === "RESOLVED") throw new ValidationError("conflict already resolved");
 
     const proposalStore = createProposalStore(app.db);
     const knowledgeStore = createKnowledgeItemStore(app.db);
     const auditStore = createAuditEventStore(app.db);
+
+    // Atomic compare-and-swap — claims the conflict before any side effects
+    const resolved = await conflictStore.resolve(actor.organizationId, id, actor.actorId, action, mergedContent);
+    if (!resolved) throw new NotFoundError("conflict not found or already resolved");
 
     if (action === "KEEP_EXISTING") {
       await proposalStore.reject(actor.organizationId, conflict.proposalId, actor.actorId, "conflict resolved: keep existing");
@@ -92,8 +95,6 @@ export function registerConflictRoutes(app: FastifyInstance): void {
       actorId: actor.actorId, actorName: actor.actorId, reason: action,
     });
 
-    const resolved = await conflictStore.resolve(actor.organizationId, id, actor.actorId, action, mergedContent);
-    if (!resolved) throw new NotFoundError("conflict not found or already resolved");
     return resolved;
   });
 }

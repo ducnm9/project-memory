@@ -3,16 +3,17 @@ import { createProposalStore } from "../../../src/modules/ingestion/proposal-rep
 import { createFakeDb } from "../../support/fake-db.js";
 
 describe("ProposalStore", () => {
-  it("creates a proposal in PROPOSED status", async () => {
+  it("creates a proposal in VALIDATING status", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
     const p = await store.create({
       organizationId: "org_1", projectId: "proj_1",
       type: "Architecture", title: "Overview", summary: "Main app",
       content: {}, sourceIds: [], triggeredBy: "bootstrap",
+      proposedBy: "system", knowledgeItemId: null, validationResults: [],
     });
     expect(p.id).toMatch(/^prop_/);
-    expect(p.status).toBe("PROPOSED");
+    expect(p.status).toBe("VALIDATING");
     expect(p.contentHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
@@ -28,6 +29,7 @@ describe("ProposalStore", () => {
       organizationId: "org_1", projectId: "proj_1",
       type: "Decision", title: "Use MongoDB", summary: "NoSQL choice",
       content: {}, sourceIds: [], triggeredBy: "bootstrap",
+      proposedBy: "system", knowledgeItemId: null, validationResults: [],
     });
     expect(await store.existsByHash("org_1", "proj_1", p.contentHash)).toBe(true);
   });
@@ -35,8 +37,8 @@ describe("ProposalStore", () => {
   it("findByProject lists all proposals for a project", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
-    await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "CI", summary: "Uses GH Actions", content: {}, sourceIds: [], triggeredBy: "bootstrap" });
-    await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "Build", summary: "Uses npm", content: {}, sourceIds: [], triggeredBy: "bootstrap" });
+    await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "CI", summary: "Uses GH Actions", content: {}, sourceIds: [], triggeredBy: "bootstrap", proposedBy: "system", knowledgeItemId: null, validationResults: [] });
+    await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "Build", summary: "Uses npm", content: {}, sourceIds: [], triggeredBy: "bootstrap", proposedBy: "system", knowledgeItemId: null, validationResults: [] });
     const list = await store.findByProject("org_1", "proj_1");
     expect(list).toHaveLength(2);
   });
@@ -44,9 +46,9 @@ describe("ProposalStore", () => {
   it("approve transitions status and sets knowledgeItemId", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
-    const p = await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "Auth", summary: "Auth module", content: {}, sourceIds: [], triggeredBy: "bootstrap" });
+    const p = await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "Auth", summary: "Auth module", content: {}, sourceIds: [], triggeredBy: "bootstrap", proposedBy: "system", knowledgeItemId: null, validationResults: [] });
     const approved = await store.approve("org_1", p.id, "actor_1", "know_abc");
-    expect(approved!.status).toBe("APPROVED");
+    expect(approved!.status).toBe("PUBLISHED");
     expect(approved!.knowledgeItemId).toBe("know_abc");
     expect(approved!.reviewedBy).toBe("actor_1");
   });
@@ -54,8 +56,8 @@ describe("ProposalStore", () => {
   it("reject transitions status", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
-    const p = await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "t", summary: "s", content: {}, sourceIds: [], triggeredBy: "bootstrap" });
-    const rejected = await store.reject("org_1", p.id, "actor_1");
+    const p = await store.create({ organizationId: "org_1", projectId: "proj_1", type: "Concept", title: "t", summary: "s", content: {}, sourceIds: [], triggeredBy: "bootstrap", proposedBy: "system", knowledgeItemId: null, validationResults: [] });
+    const rejected = await store.reject("org_1", p.id, "actor_1", "not relevant");
     expect(rejected!.status).toBe("REJECTED");
   });
 });

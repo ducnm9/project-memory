@@ -72,6 +72,7 @@ export class IncrementalSync {
           organizationId: orgId, projectId, type: "Architecture",
           title, summary, content: { changedFiles: matchingFiles },
           sourceIds: [], triggeredBy: "incremental",
+          proposedBy: "system", knowledgeItemId: null, validationResults: [],
         });
         newProposals++;
       }

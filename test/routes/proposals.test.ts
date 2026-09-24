@@ -28,9 +28,11 @@ function buildApp(rows: Collections): FastifyInstance {
 
 const makeProposal = (overrides = {}) => ({
   id: newProposalId(), organizationId: orgId, projectId,
-  status: "PROPOSED", type: "Architecture", title: "Overview", summary: "App overview",
+  status: "VALIDATING", type: "Architecture", title: "Overview", summary: "App overview",
   content: {}, sourceIds: [], contentHash: "abc123", triggeredBy: "bootstrap",
   createdAt: new Date().toISOString(), reviewedBy: null, reviewedAt: null, knowledgeItemId: null,
+  proposedBy: "system", proposedAt: new Date().toISOString(),
+  validationResults: [], rejectionReason: null, changesFeedback: null, updatedAt: new Date().toISOString(),
   ...overrides,
 });
 
@@ -61,8 +63,8 @@ describe("GET /organizations/:orgId/projects/:projectId/proposals", () => {
   });
 
   it("filters by status", async () => {
-    const app = buildApp(seeded({ proposals: [makeProposal(), makeProposal({ id: newProposalId(), status: "APPROVED", knowledgeItemId: "know_x" })] }));
-    const res = await app.inject({ method: "GET", url: `/organizations/${orgId}/projects/${projectId}/proposals?status=PROPOSED` });
+    const app = buildApp(seeded({ proposals: [makeProposal(), makeProposal({ id: newProposalId(), status: "PUBLISHED", knowledgeItemId: "know_x" })] }));
+    const res = await app.inject({ method: "GET", url: `/organizations/${orgId}/projects/${projectId}/proposals?status=VALIDATING` });
     expect(res.json().proposals).toHaveLength(1);
     await app.close();
   });
@@ -78,7 +80,7 @@ describe("POST .../proposals/:id/approve", () => {
     });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body.status).toBe("APPROVED");
+    expect(body.status).toBe("PUBLISHED");
     expect(body.knowledgeItemId).toMatch(/^know_/);
     await app.close();
   });
@@ -168,7 +170,7 @@ describe("POST /organizations/:orgId/projects/:projectId/proposals", () => {
     expect(res.statusCode).toBe(201);
     const body = res.json();
     expect(body.id).toMatch(/^prop_/);
-    expect(body.status).toBe("PROPOSED");
+    expect(body.status).toBe("VALIDATING");
     await app.close();
   });
 

@@ -99,6 +99,9 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
         content: validatedContent,
         sourceIds: body.sourceIds,
         triggeredBy: body.triggeredBy,
+        proposedBy: actor.actorId,
+        knowledgeItemId: null,
+        validationResults: [],
       });
 
       const response: Record<string, unknown> = { ...proposal };
@@ -190,8 +193,8 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
       const proposalStore = createProposalStore(app.db);
       const proposal = await proposalStore.findById(orgId, id);
       if (!proposal || proposal.projectId !== projectId) throw new NotFoundError("proposal not found");
-      if (proposal.status !== "PROPOSED")
-        throw new InvalidStatusTransitionError(proposal.status, "APPROVED");
+      if (proposal.status !== "VALIDATING")
+        throw new InvalidStatusTransitionError(proposal.status, "PUBLISHED");
 
       // Evidence validation
       const sourceStore = createSourceStore(app.db);
@@ -273,10 +276,10 @@ export function registerProposalRoutes(app: FastifyInstance, config: AppConfig):
       const store = createProposalStore(app.db);
       const proposal = await store.findById(orgId, id);
       if (!proposal || proposal.projectId !== projectId) throw new NotFoundError("proposal not found");
-      if (proposal.status !== "PROPOSED")
+      if (proposal.status !== "VALIDATING")
         throw new InvalidStatusTransitionError(proposal.status, "REJECTED");
 
-      const rejected = await store.reject(orgId, id, actor.actorId);
+      const rejected = await store.reject(orgId, id, actor.actorId, "rejected by reviewer");
       if (!rejected) throw new NotFoundError("proposal not found");
       return rejected;
     },

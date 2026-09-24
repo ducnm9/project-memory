@@ -56,7 +56,7 @@ export function buildApp({ config, db }: BuildAppOptions): FastifyInstance {
   registerAuditEventRoutes(app);
   registerGapRoutes(app);
   registerBootstrapRoutes(app);
-  registerProposalRoutes(app);
+  registerProposalRoutes(app, config);
   registerTokenRoutes(app, config.authTokenPepper);
 
   return app;

@@ -8,6 +8,8 @@ import { SearchIndexer } from "../modules/retrieval/search-indexer.js";
 import { requireRole } from "../modules/auth/actor.js";
 import { ForbiddenScopeError, NotFoundError, UnauthorizedError, ValidationError } from "../lib/errors.js";
 
+const conflictIdSchema = z.string().regex(/^conf_[0-9A-HJKMNP-TV-Z]{26}$/);
+
 const resolveBodySchema = z.object({
   action: z.enum(["KEEP_EXISTING", "ACCEPT_NEW", "MERGE"]),
   mergedContent: z.record(z.unknown()).optional(),
@@ -45,6 +47,7 @@ export function registerConflictRoutes(app: FastifyInstance): void {
     if (!actor) throw new UnauthorizedError("missing credentials");
     requireRole(actor, "REVIEWER");
     const { id } = req.params as { id: string };
+    parseOrThrow(conflictIdSchema, id, "conflict id is malformed");
     const { action, mergedContent } = parseOrThrow(resolveBodySchema, req.body ?? {}, "action required");
     if (action === "MERGE" && !mergedContent) throw new ValidationError("mergedContent required for MERGE resolution");
 
@@ -61,27 +64,25 @@ export function registerConflictRoutes(app: FastifyInstance): void {
       await proposalStore.reject(actor.organizationId, conflict.proposalId, actor.actorId, "conflict resolved: keep existing");
     } else if (action === "ACCEPT_NEW") {
       const proposal = await proposalStore.findById(actor.organizationId, conflict.proposalId);
-      if (proposal) {
-        const item = await knowledgeStore.create({
-          organizationId: actor.organizationId, projectId: conflict.projectId,
-          type: proposal.type, title: proposal.title, summary: proposal.summary,
-          content: proposal.content, status: "PUBLISHED", ownerId: proposal.proposedBy,
-        });
-        await new SearchIndexer(app.db).upsert(item);
-        await proposalStore.approve(actor.organizationId, conflict.proposalId, actor.actorId, item.id);
-      }
+      if (!proposal) throw new NotFoundError("proposal not found");
+      const item = await knowledgeStore.create({
+        organizationId: actor.organizationId, projectId: conflict.projectId,
+        type: proposal.type, title: proposal.title, summary: proposal.summary,
+        content: proposal.content, status: "PUBLISHED", ownerId: proposal.proposedBy,
+      });
+      await new SearchIndexer(app.db).upsert(item);
+      await proposalStore.approve(actor.organizationId, conflict.proposalId, actor.actorId, item.id);
       await knowledgeStore.update(actor.organizationId, conflict.conflictingKnowledgeId, { status: "DEPRECATED" });
     } else if (action === "MERGE") {
       const proposal = await proposalStore.findById(actor.organizationId, conflict.proposalId);
-      if (proposal && mergedContent) {
-        const item = await knowledgeStore.create({
-          organizationId: actor.organizationId, projectId: conflict.projectId,
-          type: proposal.type, title: proposal.title, summary: proposal.summary,
-          content: mergedContent, status: "PUBLISHED", ownerId: proposal.proposedBy,
-        });
-        await new SearchIndexer(app.db).upsert(item);
-        await proposalStore.approve(actor.organizationId, conflict.proposalId, actor.actorId, item.id);
-      }
+      if (!proposal) throw new NotFoundError("proposal not found");
+      const item = await knowledgeStore.create({
+        organizationId: actor.organizationId, projectId: conflict.projectId,
+        type: proposal.type, title: proposal.title, summary: proposal.summary,
+        content: mergedContent as Record<string, unknown>, status: "PUBLISHED", ownerId: proposal.proposedBy,
+      });
+      await new SearchIndexer(app.db).upsert(item);
+      await proposalStore.approve(actor.organizationId, conflict.proposalId, actor.actorId, item.id);
       await knowledgeStore.update(actor.organizationId, conflict.conflictingKnowledgeId, { status: "DEPRECATED" });
     }
 
@@ -91,6 +92,8 @@ export function registerConflictRoutes(app: FastifyInstance): void {
       actorId: actor.actorId, actorName: actor.actorId, reason: action,
     });
 
-    return conflictStore.resolve(actor.organizationId, id, actor.actorId, action, mergedContent);
+    const resolved = await conflictStore.resolve(actor.organizationId, id, actor.actorId, action, mergedContent);
+    if (!resolved) throw new NotFoundError("conflict not found or already resolved");
+    return resolved;
   });
 }

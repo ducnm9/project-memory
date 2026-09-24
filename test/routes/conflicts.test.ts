@@ -29,18 +29,20 @@ describe("GET /organizations/:orgId/projects/:projectId/conflicts", () => {
   });
 });
 
+const CONF_ID = "conf_01AAAAAAAAAAAAAAAAAAAAAAAA";
+
 describe("POST /conflicts/:id/resolve", () => {
   it("returns 403 for READER", async () => {
     const { app, rows } = buildApp(reader);
     rows.conflicts.push({
-      id: "conf_01", organizationId: "org_1", projectId: "proj_1",
+      id: CONF_ID, organizationId: "org_1", projectId: "proj_1",
       proposalId: "prop_01", conflictingKnowledgeId: "know_01",
       explanation: "they differ", status: "OPEN", resolution: null,
       mergedContent: null, resolvedBy: null, resolvedAt: null,
       createdAt: "2026-01-01T00:00:00.000Z",
     });
     const res = await app.inject({
-      method: "POST", url: "/conflicts/conf_01/resolve",
+      method: "POST", url: `/conflicts/${CONF_ID}/resolve`,
       payload: { action: "KEEP_EXISTING" },
     });
     expect(res.statusCode).toBe(403);
@@ -49,7 +51,7 @@ describe("POST /conflicts/:id/resolve", () => {
   it("KEEP_EXISTING rejects proposal and closes conflict", async () => {
     const { app, rows } = buildApp(reviewer);
     rows.conflicts.push({
-      id: "conf_01", organizationId: "org_1", projectId: "proj_1",
+      id: CONF_ID, organizationId: "org_1", projectId: "proj_1",
       proposalId: "prop_01", conflictingKnowledgeId: "know_01",
       explanation: "they differ", status: "OPEN", resolution: null,
       mergedContent: null, resolvedBy: null, resolvedAt: null,
@@ -66,7 +68,7 @@ describe("POST /conflicts/:id/resolve", () => {
     });
     rows.audit_events = [];
     const res = await app.inject({
-      method: "POST", url: "/conflicts/conf_01/resolve",
+      method: "POST", url: `/conflicts/${CONF_ID}/resolve`,
       payload: { action: "KEEP_EXISTING" },
     });
     expect(res.statusCode).toBe(200);

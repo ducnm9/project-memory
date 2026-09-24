@@ -5,9 +5,12 @@ import { registerErrorHandler } from "../../src/plugins/error-handler.js";
 import { newOrgId, newProjectId } from "../../src/modules/project-context/entities.js";
 import { newProposalId } from "../../src/modules/ingestion/entities.js";
 import { createFakeDb, type Collections } from "../support/fake-db.js";
+import type { AppConfig } from "../../src/config/index.js";
 
 const orgId = newOrgId();
 const projectId = newProjectId();
+
+const fakeConfig: Pick<AppConfig, "llm" | "embedding"> = { llm: null, embedding: null };
 
 function buildApp(rows: Collections): FastifyInstance {
   const { db } = createFakeDb(rows);
@@ -19,7 +22,7 @@ function buildApp(rows: Collections): FastifyInstance {
     r.projectContext = { organizationId: orgId, projectId: null };
   });
   registerErrorHandler(app);
-  registerProposalRoutes(app);
+  registerProposalRoutes(app, fakeConfig as AppConfig);
   return app;
 }
 
@@ -89,6 +92,42 @@ describe("POST .../proposals/:id/approve", () => {
     expect(res.statusCode).toBe(404);
     await app.close();
   });
+
+  it("returns 422 when a sourceId does not resolve to a real source", async () => {
+    const proposal = makeProposal({ sourceIds: ["src_01J000000000000000000000001"] });
+    const app = buildApp(seeded({ proposals: [proposal] }));
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals/${proposal.id}/approve`,
+    });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error.code).toBe("EVIDENCE_VALIDATION_ERROR");
+    await app.close();
+  });
+
+  it("approves a Decision proposal with no sources and includes a warning", async () => {
+    const proposal = makeProposal({ type: "Decision", sourceIds: [], triggeredBy: "bootstrap" });
+    const app = buildApp(seeded({ proposals: [proposal] }));
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals/${proposal.id}/approve`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().warnings).toContain("no supporting sources provided");
+    await app.close();
+  });
+
+  it("approves a manual proposal with no sources without warning", async () => {
+    const proposal = makeProposal({ type: "Decision", sourceIds: [], triggeredBy: "manual" });
+    const app = buildApp(seeded({ proposals: [proposal] }));
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals/${proposal.id}/approve`,
+    });
+    expect(res.statusCode).toBe(200);
+    expect(res.json().warnings).toBeUndefined();
+    await app.close();
+  });
 });
 
 describe("POST .../proposals/:id/reject", () => {
@@ -101,6 +140,89 @@ describe("POST .../proposals/:id/reject", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().status).toBe("REJECTED");
+    await app.close();
+  });
+});
+
+describe("POST /organizations/:orgId/projects/:projectId/proposals", () => {
+  const validBody = {
+    projectId,
+    type: "Architecture",
+    title: "Payment Service",
+    summary: "Handles payment processing.",
+    content: {
+      component: "PaymentService",
+      responsibility: "Processes payments via Stripe.",
+    },
+    sourceIds: [],
+    triggeredBy: "manual",
+  };
+
+  it("creates a proposal and returns 201", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals`,
+      payload: validBody,
+    });
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.id).toMatch(/^prop_/);
+    expect(body.status).toBe("PROPOSED");
+    await app.close();
+  });
+
+  it("returns 400 when required content field is missing", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals`,
+      payload: { ...validBody, content: {} },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toMatch(/component/);
+    await app.close();
+  });
+
+  it("returns 400 when type is invalid", async () => {
+    const app = buildApp(seeded());
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals`,
+      payload: { ...validBody, type: "InvalidType" },
+    });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
+
+  it("returns 409 when exact title duplicate exists", async () => {
+    const existingItem = {
+      id: "know_01J000000000000000000000001",
+      organizationId: orgId,
+      projectId,
+      type: "Architecture",
+      title: "Payment Service",
+      summary: "Existing summary.",
+      content: {},
+      status: "PUBLISHED",
+      version: 1,
+      ownerId: "tok_1",
+      sourceIds: [],
+      createdAt: "",
+      updatedAt: "",
+      lastVerifiedAt: null,
+      embedding: null,
+      embeddingModel: null,
+      embeddingUpdatedAt: null,
+    };
+    const app = buildApp(seeded({ knowledge_items: [existingItem] }));
+    const res = await app.inject({
+      method: "POST",
+      url: `/organizations/${orgId}/projects/${projectId}/proposals`,
+      payload: validBody,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("DUPLICATE_PROPOSAL");
     await app.close();
   });
 });

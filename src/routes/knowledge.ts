@@ -38,6 +38,7 @@ import { HybridRetriever } from '../modules/retrieval/hybrid-retriever.js';
 import { Reranker } from '../modules/retrieval/reranker.js';
 import { RelationExpander } from '../modules/retrieval/relation-expander.js';
 import { ContextAssembler } from '../modules/retrieval/context-assembler.js';
+import { ImpactAnalyzer } from '../modules/retrieval/impact-analyzer.js';
 
 function context(req: FastifyRequest): ProjectContext {
   const ctx = req.projectContext;
@@ -87,6 +88,7 @@ export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig)
     new Reranker(process.env.COHERE_API_KEY);
   const relationExpander = () => new RelationExpander(app.db);
   const contextAssembler = () => new ContextAssembler(app.db);
+  const impactAnalyzer = () => new ImpactAnalyzer(app.db, config.embedding ?? undefined);
 
   function actorName(actor: { actorId: string; name?: string }): string {
     return actor.name ?? actor.actorId;
@@ -242,6 +244,22 @@ export function registerKnowledgeRoutes(app: FastifyInstance, config: AppConfig)
       limit: query.limit ? parseInt(query.limit, 10) : 20,
     });
     return { results, query: query.q, total: results.length };
+  });
+
+  app.get('/knowledge/:id/impact', BEARER, async (req) => {
+    const ctx = context(req);
+    const { id } = req.params as { id: string };
+    const { projectId: qProjectId } = req.query as { projectId?: string };
+
+    parseOrThrow(knowledgeIdSchema, id, 'knowledge id is malformed');
+    const projectId = parseOrThrow(projectIdSchema, qProjectId, 'projectId is malformed');
+    await requireProject(ctx.organizationId, projectId);
+
+    const item = await store().findById(ctx.organizationId, id);
+    if (!item || item.projectId !== projectId) throw new KnowledgeNotFoundError();
+
+    const impacts = await impactAnalyzer().analyze(ctx.organizationId, projectId, id);
+    return { componentId: id, impacts };
   });
 
   app.get("/knowledge/:id", BEARER, async (req) => {

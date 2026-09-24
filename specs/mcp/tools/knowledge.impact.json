@@ -1,0 +1,41 @@
+{
+  "name": "knowledge.impact",
+  "description": "Given a knowledge item ID, returns all knowledge items potentially affected by changing it. Combines explicit relation graph (impacts/depends_on) and semantic similarity.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "componentId": {
+        "type": "string",
+        "description": "ID of the knowledge item to analyze impact for (e.g. know_01J...)"
+      },
+      "projectId": {
+        "type": "string",
+        "description": "Project scope"
+      }
+    },
+    "required": ["componentId", "projectId"]
+  },
+  "outputSchema": {
+    "type": "object",
+    "properties": {
+      "componentId": { "type": "string" },
+      "impacts": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "knowledgeId": { "type": "string" },
+            "type": { "type": "string" },
+            "title": { "type": "string" },
+            "summary": { "type": "string" },
+            "signal": { "type": "string", "enum": ["relation", "semantic"] },
+            "relationPath": { "type": "string" },
+            "score": { "type": "number" }
+          },
+          "required": ["knowledgeId", "type", "title", "summary", "signal"]
+        }
+      }
+    },
+    "required": ["componentId", "impacts"]
+  }
+}

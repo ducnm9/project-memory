@@ -77,6 +77,18 @@ export class SourceNotFoundError extends AppError {
   }
 }
 
+export class EvidenceValidationError extends AppError {
+  constructor(message = "evidence validation failed") {
+    super(message, 422, "EVIDENCE_VALIDATION_ERROR");
+  }
+}
+
+export class DuplicateProposalError extends AppError {
+  constructor(message = "duplicate proposal detected") {
+    super(message, 409, "DUPLICATE_PROPOSAL");
+  }
+}
+
 export class FactNotFoundError extends AppError {
   constructor(message = "fact not found") {
     super(message, 404, "FACT_NOT_FOUND");

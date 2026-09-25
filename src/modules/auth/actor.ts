@@ -1,11 +1,22 @@
-import { UnauthorizedError } from "../../lib/errors.js";
+import { ForbiddenScopeError, UnauthorizedError } from "../../lib/errors.js";
 import { hashSecret } from "./secret.js";
 import type { TokenRepository } from "./repository.js";
+import type { PrincipalRole } from "./entities.js";
 
 export interface Actor {
   actorId: string;
   organizationId: string;
   type: "service";
+  role: PrincipalRole;
+}
+
+const ROLE_ORDER: PrincipalRole[] = ["READER", "REVIEWER", "ADMIN"];
+
+export function requireRole(actor: Actor | undefined, min: PrincipalRole): void {
+  if (!actor) throw new ForbiddenScopeError("missing credentials");
+  if (ROLE_ORDER.indexOf(actor.role) < ROLE_ORDER.indexOf(min)) {
+    throw new ForbiddenScopeError(`requires ${min} role`);
+  }
 }
 
 const BEARER = "Bearer ";
@@ -31,5 +42,10 @@ export async function resolveActor(
   if (!token) {
     throw new UnauthorizedError("invalid credentials");
   }
-  return { actorId: token.id, organizationId: token.organizationId, type: "service" };
+  return {
+    actorId: token.id,
+    organizationId: token.organizationId,
+    type: "service",
+    role: token.role ?? "READER",
+  };
 }

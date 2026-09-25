@@ -49,6 +49,33 @@ describe("POST /organizations/:orgId/tokens", () => {
     expect(res.statusCode).toBe(400);
     await app.close();
   });
+
+  it("accepts role and forwards it to createToken", async () => {
+    const insertOne = vi.fn().mockResolvedValue({});
+    const app = buildApp({ organizations: orgExists, service_tokens: { insertOne } });
+    const res = await app.inject({ method: "POST", url: `/organizations/${orgId}/tokens`, payload: { name: "ci", role: "ADMIN" } });
+    expect(res.statusCode).toBe(201);
+    const inserted = insertOne.mock.calls[0][0];
+    expect(inserted.role).toBe("ADMIN");
+    await app.close();
+  });
+
+  it("defaults role to READER when omitted", async () => {
+    const insertOne = vi.fn().mockResolvedValue({});
+    const app = buildApp({ organizations: orgExists, service_tokens: { insertOne } });
+    const res = await app.inject({ method: "POST", url: `/organizations/${orgId}/tokens`, payload: { name: "ci" } });
+    expect(res.statusCode).toBe(201);
+    const inserted = insertOne.mock.calls[0][0];
+    expect(inserted.role).toBe("READER");
+    await app.close();
+  });
+
+  it("returns 400 for an invalid role value", async () => {
+    const app = buildApp({ organizations: orgExists, service_tokens: { insertOne: vi.fn() } });
+    const res = await app.inject({ method: "POST", url: `/organizations/${orgId}/tokens`, payload: { name: "ci", role: "SUPERUSER" } });
+    expect(res.statusCode).toBe(400);
+    await app.close();
+  });
 });
 
 describe("GET /organizations/:orgId/tokens", () => {

@@ -174,6 +174,7 @@ export function registerRepositoryRoutes(app: FastifyInstance): void {
         createSourceStore(app.db),
         createProposalStore(app.db),
         repoStore,
+        app.db,
       );
       return syncService.sync(orgId, projectId, repositoryId);
     },

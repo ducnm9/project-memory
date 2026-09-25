@@ -13,7 +13,7 @@ function dbWithToken(match: boolean): Db {
     collection: () => ({
       findOne: async (filter: { hashedSecret: string; revokedAt: null }) =>
         match && filter.revokedAt === null
-          ? { id: "tok_x", organizationId: "org_1", name: "n", prefix: "pmk_x", hashedSecret: filter.hashedSecret, createdAt: "", revokedAt: null }
+          ? { id: "tok_x", organizationId: "org_1", name: "n", prefix: "pmk_x", hashedSecret: filter.hashedSecret, createdAt: "", revokedAt: null, role: "READER" }
           : null,
     }),
   } as unknown as Db;
@@ -65,7 +65,7 @@ describe("authentication plugin", () => {
     const app = buildApp(dbWithToken(true));
     const res = await app.inject({ method: "GET", url: "/bear", headers: { authorization: "Bearer pmk_good" } });
     expect(res.statusCode).toBe(200);
-    expect(res.json().actor).toEqual({ actorId: "tok_x", organizationId: "org_1", type: "service" });
+    expect(res.json().actor).toEqual({ actorId: "tok_x", organizationId: "org_1", type: "service", role: "READER" });
     await app.close();
   });
 

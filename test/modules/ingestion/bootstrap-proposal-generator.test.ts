@@ -33,12 +33,12 @@ describe("BootstrapProposalGenerator", () => {
     expect(created.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("all generated proposals have PROPOSED status", async () => {
+  it("all generated proposals have VALIDATING status", async () => {
     const { db } = createFakeDb();
     const store = createProposalStore(db);
     const gen = new BootstrapProposalGenerator(store);
     const { created } = await gen.generate("org_1", "proj_1", snapshot, null);
-    expect(created.every(p => p.status === "PROPOSED")).toBe(true);
+    expect(created.every(p => p.status === "VALIDATING")).toBe(true);
   });
 
   it("all proposals have triggeredBy=bootstrap", async () => {

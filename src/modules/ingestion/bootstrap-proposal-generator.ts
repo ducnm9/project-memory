@@ -19,7 +19,7 @@ export class BootstrapProposalGenerator {
     let skipped = 0;
 
     for (const input of candidates) {
-      const full: CreateProposalInput = { ...input, organizationId: orgId, projectId };
+      const full: CreateProposalInput = { ...input, organizationId: orgId, projectId, proposedBy: "system", knowledgeItemId: null, validationResults: [] };
 
       // Optional: enrich Architecture module summaries with LLM first
       if (llmModel && full.type === "Architecture" && full.title !== "Project Overview") {
@@ -40,8 +40,10 @@ export class BootstrapProposalGenerator {
   }
 }
 
-function buildCandidates(snap: ProjectSnapshot): Omit<CreateProposalInput, "organizationId" | "projectId">[] {
-  const candidates: Omit<CreateProposalInput, "organizationId" | "projectId">[] = [];
+type CandidateInput = Omit<CreateProposalInput, "organizationId" | "projectId" | "proposedBy" | "knowledgeItemId" | "validationResults">;
+
+function buildCandidates(snap: ProjectSnapshot): CandidateInput[] {
+  const candidates: CandidateInput[] = [];
 
   // 1. Project overview
   candidates.push({

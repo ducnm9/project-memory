@@ -38,8 +38,8 @@ describe("canTransition", () => {
     }
   });
 
-  it("treats REJECTED / UPDATED / STALE / DEPRECATED as terminal", () => {
-    const terminal: KnowledgeStatus[] = ["REJECTED", "UPDATED", "STALE", "DEPRECATED"];
+  it("treats REJECTED / UPDATED / DEPRECATED as terminal", () => {
+    const terminal: KnowledgeStatus[] = ["REJECTED", "UPDATED", "DEPRECATED"];
     for (const from of terminal) {
       for (const to of KNOWLEDGE_STATUSES) {
         expect(canTransition(from, to), `${from} -> ${to}`).toBe(false);

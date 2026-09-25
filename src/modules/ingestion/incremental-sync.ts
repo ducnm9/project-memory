@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { Db } from "mongodb";
 import type { GitConnector } from "../git-connector/git-connector.js";
 import type { KnowledgeItemStore } from "../knowledge-core/repository.js";
 import type { SourceStore } from "../knowledge-core/source-repository.js";
@@ -20,6 +21,7 @@ export class IncrementalSync {
     private readonly sourceStore: SourceStore,
     private readonly proposalStore: ProposalStore,
     private readonly repoStore: RepositoryStore,
+    private readonly db?: Db,
   ) {}
 
   async sync(orgId: string, projectId: string, repoId: string): Promise<SyncResult> {
@@ -72,12 +74,19 @@ export class IncrementalSync {
           organizationId: orgId, projectId, type: "Architecture",
           title, summary, content: { changedFiles: matchingFiles },
           sourceIds: [], triggeredBy: "incremental",
+          proposedBy: "system", knowledgeItemId: null, validationResults: [],
         });
         newProposals++;
       }
     }
 
     await this.repoStore.updateSyncState(orgId, repoId, headSha);
+
+    if (this.db) {
+      const { FreshnessChecker } = await import("../governance/freshness-checker.js");
+      const { DEFAULT_TTL_DAYS } = await import("../governance/freshness-config.js");
+      await new FreshnessChecker(this.db).check(orgId, projectId, { ttlDays: DEFAULT_TTL_DAYS });
+    }
 
     return { fromSha: repo.lastCommitSha, toSha: headSha, changedFiles, stalledItems, newProposals };
   }
